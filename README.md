@@ -10,6 +10,7 @@
 **基于 GuiXiaoXiRag 的知识图谱检索增强生成（RAG）FastAPI 服务**
 
 *提供企业级的智能问答和知识管理解决方案*
+*文档均用 Claude 4 opus 生成*
 
 [📖 文档](docs/README.md) • [🚀 快速开始](docs/getting-started/QUICK_START.md) • [🌐 API 文档](http://localhost:8002/docs) • [💬 讨论](https://github.com/your-repo/discussions)
 
@@ -35,7 +36,7 @@
 - **备份恢复**: 完整的数据备份和恢复机制
 
 ### 🌍 多语言支持
-- **多语言处理**: 支持中文、英文等 8+ 种语言
+- **多语言处理**: 支持中文、英文
 - **跨语言检索**: 支持跨语言知识检索和回答生成
 
 ### 🎨 用户界面
