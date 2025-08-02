@@ -1,0 +1,30 @@
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+python-multipart>=0.0.6
+python-dotenv>=1.0.0
+
+# 文档处理
+docx2txt>=0.8
+textract>=1.6.5
+PyPDF2>=3.0.1
+
+# 数据处理
+numpy>=1.24.0
+pandas>=2.0.0
+
+# 日志和监控
+structlog>=23.0.0
+
+# Streamlit界面
+streamlit>=1.28.0
+plotly>=5.15.0
+httpx>=0.25.0
+
+# GuiXiaoXiRag依赖
+# 注意：这些依赖应该与guixiaoxiRag目录中的要求匹配
+openai>=1.0.0
+tiktoken>=0.5.0
+networkx>=3.0
+nano-vectordb>=0.9.0

@@ -1,0 +1,117 @@
+version: '3.8'
+
+services:
+  guixiaoxiRag-api:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8002
+      - DEBUG=false
+      - LOG_LEVEL=INFO
+      - WORKING_DIR=/app/data/knowledgeBase/default
+      - OPENAI_API_BASE=http://llm-service:8100/v1
+      - OPENAI_EMBEDDING_API_BASE=http://embedding-service:8200/v1
+      - OPENAI_CHAT_API_KEY=sk-gdXw028PJ6JtobnBLeQiArQLnmqahdXUQSjIbyFgAhJdHb1Q
+      - OPENAI_CHAT_MODEL=qwen14b
+      - OPENAI_EMBEDDING_MODEL=embedding_qwen
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - llm-service
+      - embedding-service
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  llm-service:
+    image: your-llm-service:latest
+    ports:
+      - "8100:8100"
+    environment:
+      - MODEL_NAME=qwen14b
+      - MAX_MODEL_LEN=40960
+    volumes:
+      - ./models:/app/models
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  embedding-service:
+    image: your-embedding-service:latest
+    ports:
+      - "8200:8200"
+    environment:
+      - MODEL_NAME=embedding_qwen
+      - MAX_MODEL_LEN=40960
+    volumes:
+      - ./models:/app/models
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - guixiaoxiRag-api
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  prometheus_data:
+  grafana_data:
