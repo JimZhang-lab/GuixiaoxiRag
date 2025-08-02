@@ -113,11 +113,18 @@ guixiaoxi2/
 ### 1. 环境准备
 
 ```bash
+# 创建Python环境
+conda create -n guixiaoxirag python=3.12.*
+
 # 激活Python环境
 conda activate guixiaoxirag  # 或您的环境名称
 
 # 安装依赖
 pip install -r requirements.txt
+
+unzip textract-16.5.zip
+cd textract-16.5
+pip install .
 ```
 
 ### 2. 配置设置
@@ -153,7 +160,7 @@ curl http://localhost:8002/health
 open http://localhost:8002/docs
 
 # 启动Web界面（可选）
-python start_streamlit.py
+streamlit run start_streamlit.py --server.port 8501
 open http://localhost:8501
 ```
 
@@ -195,7 +202,7 @@ python scripts/guixiaoxirag_cli.py kb switch my_kb
 
 ```bash
 # 启动 Streamlit 界面
-python start_streamlit.py
+streamlit run start_streamlit.py --server.port 8501
 
 # 访问界面
 open http://localhost:8501
