@@ -9,8 +9,9 @@
 
 **基于 GuiXiaoXiRag 的知识图谱检索增强生成（RAG）FastAPI 服务**
 
+**文档均用 Claude 4 opus 生成**
+
 *提供企业级的智能问答和知识管理解决方案*
-*文档均用 Claude 4 opus 生成*
 
 [📖 文档](docs/README.md) • [🚀 快速开始](docs/getting-started/QUICK_START.md) • [🌐 API 文档](http://localhost:8002/docs) • [💬 讨论](https://github.com/your-repo/discussions)
 
