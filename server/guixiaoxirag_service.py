@@ -15,6 +15,7 @@ from guixiaoxiRag.utils import setup_logger, EmbeddingFunc
 from guixiaoxiRag.types import KnowledgeGraph
 
 from .config import settings
+from .utils import create_or_update_knowledge_graph_json
 
 
 class GuiXiaoXiRagService:
@@ -166,6 +167,17 @@ class GuiXiaoXiRagService:
             )
             kb_name = Path(self._current_working_dir).name if self._current_working_dir else "default"
             self.logger.info(f"文本插入成功，知识库: {kb_name}，语言: {self._current_language}，track_id: {result}")
+
+            # 插入成功后，自动创建或更新知识图谱JSON文件
+            try:
+                success = create_or_update_knowledge_graph_json(self._current_working_dir)
+                if success:
+                    self.logger.info(f"知识图谱JSON文件已更新，知识库: {kb_name}")
+                else:
+                    self.logger.warning(f"知识图谱JSON文件更新失败，知识库: {kb_name}")
+            except Exception as kg_error:
+                self.logger.error(f"更新知识图谱JSON文件时发生错误: {str(kg_error)}")
+
             return result
         except Exception as e:
             self.logger.error(f"文本插入失败: {str(e)}")
@@ -196,6 +208,17 @@ class GuiXiaoXiRagService:
             )
             kb_name = Path(self._current_working_dir).name if self._current_working_dir else "default"
             self.logger.info(f"批量文本插入成功，知识库: {kb_name}，语言: {self._current_language}，track_id: {result}")
+
+            # 插入成功后，自动创建或更新知识图谱JSON文件
+            try:
+                success = create_or_update_knowledge_graph_json(self._current_working_dir)
+                if success:
+                    self.logger.info(f"知识图谱JSON文件已更新，知识库: {kb_name}")
+                else:
+                    self.logger.warning(f"知识图谱JSON文件更新失败，知识库: {kb_name}")
+            except Exception as kg_error:
+                self.logger.error(f"更新知识图谱JSON文件时发生错误: {str(kg_error)}")
+
             return result
         except Exception as e:
             self.logger.error(f"批量文本插入失败: {str(e)}")

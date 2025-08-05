@@ -52,25 +52,48 @@ curl -X POST "http://localhost:8002/query" \
 - 批量插入：`POST /insert/texts`
 - 文件上传：`POST /insert/file`
 - 批量文件：`POST /insert/files`
+- 目录插入：`POST /insert/directory`
 
 ### 🔍 智能查询
 - 基础查询：`POST /query`
 - 批量查询：`POST /query/batch`
+- 优化查询：`POST /query/optimized`
 - 查询模式：`GET /query/modes`
 
 ### 🗄️ 知识库管理
 - 列出知识库：`GET /knowledge-bases`
 - 创建知识库：`POST /knowledge-bases`
-- 切换知识库：`POST /service/switch-kb`
+- 删除知识库：`DELETE /knowledge-bases/{name}`
+- 切换知识库：`POST /knowledge-bases/switch`
+- 导出知识库：`GET /knowledge-bases/{name}/export`
 
 ### 🌍 语言管理
 - 支持语言：`GET /languages`
 - 设置语言：`POST /languages/set`
 
+### 🧠 知识图谱
+- 获取图谱：`POST /knowledge-graph`
+- 图谱统计：`GET /knowledge-graph/stats`
+- 清空图谱：`DELETE /knowledge-graph/clear`
+
+### 🎨 知识图谱可视化
+- 图谱状态：`GET /knowledge-graph/status`
+- 格式转换：`POST /knowledge-graph/convert`
+- 获取数据：`POST /knowledge-graph/data`
+- 生成可视化：`POST /knowledge-graph/visualize`
+- 列出文件：`GET /knowledge-graph/files`
+
+### ⚙️ 服务管理
+- 服务配置：`GET /service/config`
+- 切换知识库：`POST /service/switch-kb`
+
+### 🚀 性能优化
+- 性能配置：`GET /performance/configs`
+- 应用优化：`POST /performance/optimize`
+
 ### 📊 监控运维
 - 性能指标：`GET /metrics`
-- 知识图谱：`POST /knowledge-graph`
-- 图谱统计：`GET /knowledge-graph/stats`
+- 系统日志：`GET /logs`
 
 ## 🔗 相关文档
 

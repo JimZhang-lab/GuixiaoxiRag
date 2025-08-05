@@ -1,1 +1,5 @@
-__api_version__ = "0195"
+"""
+GuiXiaoXiRag API package
+"""
+
+__api_version__ = "1.4.5"

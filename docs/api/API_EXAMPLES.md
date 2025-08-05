@@ -823,6 +823,104 @@ result1 = cached_client.query("什么是人工智能？")
 result2 = cached_client.query("什么是人工智能？")  # 从缓存返回
 ```
 
+## 知识图谱可视化示例
+
+### 获取图谱状态
+```python
+def check_graph_status(client, knowledge_base="default"):
+    """检查知识图谱状态"""
+    response = client.session.get(
+        f"{client.base_url}/knowledge-graph/status",
+        params={"knowledge_base": knowledge_base}
+    )
+
+    if response.status_code == 200:
+        data = response.json()["data"]
+        print(f"GraphML文件存在: {data['xml_file_exists']}")
+        print(f"JSON文件存在: {data['json_file_exists']}")
+        print(f"节点数量: {data.get('node_count', 0)}")
+        print(f"边数量: {data.get('edge_count', 0)}")
+
+    return response.json()
+
+# 使用示例
+client = GuiXiaoXiRagClient()
+status = check_graph_status(client)
+```
+
+### 生成图谱可视化
+```python
+def generate_visualization(client, knowledge_base="default", max_nodes=50):
+    """生成知识图谱可视化"""
+    data = {
+        "knowledge_base": knowledge_base,
+        "max_nodes": max_nodes,
+        "layout": "spring",
+        "node_size_field": "degree",
+        "edge_width_field": "weight"
+    }
+
+    response = client.session.post(
+        f"{client.base_url}/knowledge-graph/visualize",
+        json=data
+    )
+
+    if response.status_code == 200:
+        result = response.json()["data"]
+        print(f"可视化HTML文件: {result['html_file']}")
+        print(f"处理的节点数: {result['processed_nodes']}")
+        print(f"处理的边数: {result['processed_edges']}")
+
+        # 可以在浏览器中打开HTML文件
+        import webbrowser
+        webbrowser.open(result['html_file'])
+
+    return response.json()
+
+# 使用示例
+visualization = generate_visualization(client, max_nodes=100)
+```
+
+### 获取图谱数据
+```python
+def get_graph_data(client, knowledge_base="default", format="json"):
+    """获取图谱数据"""
+    data = {
+        "knowledge_base": knowledge_base,
+        "format": format
+    }
+
+    response = client.session.post(
+        f"{client.base_url}/knowledge-graph/data",
+        json=data
+    )
+
+    if response.status_code == 200:
+        result = response.json()["data"]
+
+        if format == "json":
+            nodes = result["nodes"]
+            edges = result["edges"]
+            print(f"获取到 {len(nodes)} 个节点和 {len(edges)} 条边")
+
+            # 分析节点类型分布
+            node_types = {}
+            for node in nodes:
+                node_type = node.get("type", "unknown")
+                node_types[node_type] = node_types.get(node_type, 0) + 1
+
+            print("节点类型分布:")
+            for node_type, count in node_types.items():
+                print(f"  {node_type}: {count}")
+
+        return result
+
+    return None
+
+# 使用示例
+graph_data = get_graph_data(client)
+```
+
 ## 🔗 相关文档
 
 - [API参考文档](API_REFERENCE.md)

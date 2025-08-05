@@ -35,7 +35,7 @@
 python main.py
 
 # 或使用uvicorn
-uvicorn server.main:app --host 0.0.0.0 --port 8002
+uvicorn server.api:app --host 0.0.0.0 --port 8002
 ```
 
 ### 2. 验证服务
@@ -251,12 +251,65 @@ curl http://localhost:8002/knowledge-graph/stats
 ```
 
 ### 清空图谱
-- **接口**: `POST /knowledge-graph/clear`
+- **接口**: `DELETE /knowledge-graph/clear`
 - **描述**: 清空知识图谱数据
 - **注意**: ⚠️ 危险操作
 
 ```bash
-curl -X POST http://localhost:8002/knowledge-graph/clear
+curl -X DELETE http://localhost:8002/knowledge-graph/clear
+```
+
+## 知识图谱可视化接口
+
+### 图谱状态
+- **接口**: `GET /knowledge-graph/status`
+- **描述**: 获取知识图谱文件状态
+
+```bash
+curl "http://localhost:8002/knowledge-graph/status?knowledge_base=default"
+```
+
+### 格式转换
+- **接口**: `POST /knowledge-graph/convert`
+- **描述**: 转换GraphML到JSON格式
+
+```bash
+curl -X POST "http://localhost:8002/knowledge-graph/convert?knowledge_base=default"
+```
+
+### 获取图谱数据
+- **接口**: `POST /knowledge-graph/data`
+- **描述**: 获取图谱数据（JSON或GraphML格式）
+
+```bash
+curl -X POST "http://localhost:8002/knowledge-graph/data" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "knowledge_base": "default",
+    "format": "json"
+  }'
+```
+
+### 生成可视化
+- **接口**: `POST /knowledge-graph/visualize`
+- **描述**: 生成知识图谱可视化
+
+```bash
+curl -X POST "http://localhost:8002/knowledge-graph/visualize" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "knowledge_base": "default",
+    "max_nodes": 100,
+    "layout": "spring"
+  }'
+```
+
+### 列出图谱文件
+- **接口**: `GET /knowledge-graph/files`
+- **描述**: 列出知识库中的图谱文件
+
+```bash
+curl "http://localhost:8002/knowledge-graph/files?knowledge_base=default"
 ```
 
 ## 知识库管理接口

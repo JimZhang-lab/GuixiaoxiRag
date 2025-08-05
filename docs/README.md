@@ -26,8 +26,6 @@ docs/
 ├── 📁 project/             # 📊 项目信息
 │   ├── PROJECT_ARCHITECTURE.md # 项目架构详解
 │   ├── PROJECT_SUMMARY.md  # 项目概览总结
-│   ├── CONFIG_OPTIMIZATION_SUMMARY.md # 配置优化记录
-│   ├── DOCUMENTATION_OPTIMIZATION_SUMMARY.md # 文档优化记录
 │   └── README.md           # 项目信息导航
 │
 └── README.md               # 📖 文档中心首页
@@ -90,9 +88,9 @@ CONFIG → DEPLOYMENT → TROUBLESHOOTING
 
 ### 🏗️ 架构师路径
 ```
-项目架构 → 功能特性 → 优化记录
+项目架构 → 功能特性 → API文档
    ↓        ↓         ↓
-ARCH → FEATURES → OPTIMIZATION
+ARCH → FEATURES → API_REF
 ```
 
 ## 🔗 在线资源

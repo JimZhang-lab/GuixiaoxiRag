@@ -190,7 +190,7 @@ class StreamlitAPIClient:
         return result.get("data") if result and result.get("success") else None
     
     # 知识图谱方法
-    def get_knowledge_graph(self, node_label: str, max_depth: int = 3, 
+    def get_knowledge_graph(self, node_label: str, max_depth: int = 3,
                            max_nodes: int = 100) -> Optional[Dict]:
         """获取知识图谱"""
         data = {
@@ -199,6 +199,56 @@ class StreamlitAPIClient:
             "max_nodes": max_nodes
         }
         result = self.request_sync("POST", "/knowledge-graph", json=data)
+        return result.get("data") if result and result.get("success") else None
+
+    # 知识图谱可视化方法
+    def get_graph_status(self, knowledge_base: Optional[str] = None) -> Optional[Dict]:
+        """获取知识图谱文件状态"""
+        params = {}
+        if knowledge_base:
+            params["knowledge_base"] = knowledge_base
+        result = self.request_sync("GET", "/knowledge-graph/status", params=params)
+        return result.get("data") if result and result.get("success") else None
+
+    def convert_graph_to_json(self, knowledge_base: Optional[str] = None) -> Optional[Dict]:
+        """转换GraphML到JSON"""
+        params = {}
+        if knowledge_base:
+            params["knowledge_base"] = knowledge_base
+        result = self.request_sync("POST", "/knowledge-graph/convert", params=params)
+        return result.get("data") if result and result.get("success") else None
+
+    def get_graph_data(self, knowledge_base: Optional[str] = None,
+                      format: str = "json") -> Optional[Dict]:
+        """获取图谱数据"""
+        data = {
+            "knowledge_base": knowledge_base,
+            "format": format
+        }
+        result = self.request_sync("POST", "/knowledge-graph/data", json=data)
+        return result.get("data") if result and result.get("success") else None
+
+    def visualize_knowledge_graph(self, knowledge_base: Optional[str] = None,
+                                 max_nodes: int = 100, layout: str = "spring",
+                                 node_size_field: str = "degree",
+                                 edge_width_field: str = "weight") -> Optional[Dict]:
+        """生成知识图谱可视化"""
+        data = {
+            "knowledge_base": knowledge_base,
+            "max_nodes": max_nodes,
+            "layout": layout,
+            "node_size_field": node_size_field,
+            "edge_width_field": edge_width_field
+        }
+        result = self.request_sync("POST", "/knowledge-graph/visualize", json=data)
+        return result.get("data") if result and result.get("success") else None
+
+    def list_graph_files(self, knowledge_base: Optional[str] = None) -> Optional[Dict]:
+        """列出知识库中的图谱文件"""
+        params = {}
+        if knowledge_base:
+            params["knowledge_base"] = knowledge_base
+        result = self.request_sync("GET", "/knowledge-graph/files", params=params)
         return result.get("data") if result and result.get("success") else None
     
     def get_knowledge_graph_stats(self) -> Optional[Dict]:

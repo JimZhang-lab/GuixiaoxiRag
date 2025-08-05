@@ -15,7 +15,7 @@ from fastapi.responses import JSONResponse
 from .config import settings
 from .guixiaoxirag_service import guixiaoxirag_service
 from .models import *
-from .utils import setup_logging, process_uploaded_file
+from .utils import setup_logging, process_uploaded_file, check_knowledge_graph_files, create_or_update_knowledge_graph_json
 from .middleware import LoggingMiddleware, MetricsMiddleware, SecurityMiddleware, get_metrics
 from .performance_config import PerformanceConfig, get_optimized_query_params
 from .knowledge_base_manager import kb_manager
@@ -2461,6 +2461,541 @@ async def switch_service_knowledge_base(request: KnowledgeBaseRequest):
     except Exception as e:
         logger.error(f"切换知识库失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# 知识图谱可视化API
+@app.get(
+    "/knowledge-graph/status",
+    response_model=BaseResponse,
+    tags=["知识图谱可视化"],
+    summary="获取知识图谱文件状态",
+    description="""
+    检查指定知识库的知识图谱文件状态，包括XML和JSON文件的存在性和更新时间。
+
+    **功能特性：**
+    - 检查GraphML XML文件是否存在
+    - 检查转换后的JSON文件是否存在
+    - 比较文件修改时间判断是否需要更新
+    - 提供详细的文件状态信息
+
+    **返回信息：**
+    - 文件存在性状态
+    - 文件大小信息
+    - 最后修改时间
+    - 状态描述（up_to_date, json_missing, json_outdated等）
+
+    **使用场景：**
+    - 可视化前的状态检查
+    - 判断是否需要重新转换
+    - 文件状态监控
+    """
+)
+async def get_graph_status(knowledge_base: Optional[str] = None):
+    """获取知识图谱文件状态"""
+    try:
+        # 确定工作目录
+        if knowledge_base:
+            working_dir = f"./knowledgeBase/{knowledge_base}"
+        else:
+            working_dir = settings.working_dir
+
+        # 检查文件状态
+        status_info = check_knowledge_graph_files(working_dir)
+
+        return BaseResponse(
+            data=GraphStatusResponse(
+                knowledge_base=knowledge_base or "default",
+                working_dir=working_dir,
+                xml_file_exists=status_info["xml_file_exists"],
+                xml_file_size=status_info["xml_file_size"],
+                json_file_exists=status_info["json_file_exists"],
+                json_file_size=status_info["json_file_size"],
+                last_xml_modified=status_info["last_xml_modified"],
+                last_json_modified=status_info["last_json_modified"],
+                status=status_info["status"]
+            )
+        )
+    except Exception as e:
+        logger.error(f"获取图谱状态失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post(
+    "/knowledge-graph/convert",
+    response_model=BaseResponse,
+    tags=["知识图谱可视化"],
+    summary="转换GraphML到JSON",
+    description="""
+    将指定知识库的GraphML文件转换为JSON格式，用于可视化。
+
+    **功能特性：**
+    - 自动检测GraphML文件
+    - 转换为标准JSON格式
+    - 保留节点和边的所有属性
+    - 提供转换结果统计
+
+    **转换过程：**
+    1. 检查GraphML文件是否存在
+    2. 解析XML结构和数据
+    3. 转换为JSON格式
+    4. 保存到同目录下的graph_data.json
+    5. 返回转换结果统计
+
+    **使用场景：**
+    - 首次可视化前的数据准备
+    - GraphML文件更新后的重新转换
+    - 数据格式标准化
+    """
+)
+async def convert_graph_to_json(knowledge_base: Optional[str] = None):
+    """转换GraphML文件到JSON格式"""
+    try:
+        # 确定工作目录
+        if knowledge_base:
+            working_dir = f"./knowledgeBase/{knowledge_base}"
+        else:
+            working_dir = settings.working_dir
+
+        # 执行转换
+        success = create_or_update_knowledge_graph_json(working_dir)
+
+        if success:
+            # 获取转换后的状态
+            status_info = check_knowledge_graph_files(working_dir)
+
+            return BaseResponse(
+                message="GraphML文件转换成功",
+                data={
+                    "knowledge_base": knowledge_base or "default",
+                    "working_dir": working_dir,
+                    "json_file_size": status_info["json_file_size"],
+                    "conversion_successful": True
+                }
+            )
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="GraphML文件不存在或转换失败"
+            )
+    except Exception as e:
+        logger.error(f"转换GraphML到JSON失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post(
+    "/knowledge-graph/data",
+    response_model=BaseResponse,
+    tags=["知识图谱可视化"],
+    summary="获取图谱数据",
+    description="""
+    获取指定知识库的图谱数据，支持JSON和GraphML格式。
+
+    **功能特性：**
+    - 自动检查和转换数据格式
+    - 支持节点和边数据获取
+    - 提供数据统计信息
+    - 智能格式选择
+
+    **数据格式：**
+    - JSON: 标准化的节点和边数组
+    - GraphML: 原始XML格式数据
+
+    **自动处理：**
+    - 如果JSON文件不存在，自动从GraphML转换
+    - 如果GraphML文件更新，自动重新转换
+    - 提供数据来源信息
+    """
+)
+async def get_graph_data(request: GraphDataRequest):
+    """获取图谱数据"""
+    try:
+        # 确定工作目录
+        if request.knowledge_base:
+            working_dir = f"./knowledgeBase/{request.knowledge_base}"
+        else:
+            working_dir = settings.working_dir
+
+        # 检查文件状态
+        status_info = check_knowledge_graph_files(working_dir)
+
+        if not status_info["xml_file_exists"]:
+            raise HTTPException(
+                status_code=404,
+                detail="GraphML文件不存在，请先插入文档生成知识图谱"
+            )
+
+        # 如果需要JSON格式但文件不存在或过期，则转换
+        if request.format == "json":
+            if (not status_info["json_file_exists"] or
+                status_info["status"] == "json_outdated"):
+                logger.info("JSON文件不存在或过期，正在转换...")
+                success = create_or_update_knowledge_graph_json(working_dir)
+                if not success:
+                    raise HTTPException(
+                        status_code=500,
+                        detail="GraphML到JSON转换失败"
+                    )
+
+            # 读取JSON数据
+            import json
+            json_file = status_info["json_file_path"]
+            with open(json_file, 'r', encoding='utf-8') as f:
+                graph_data = json.load(f)
+
+            return BaseResponse(
+                data=GraphDataResponse(
+                    nodes=graph_data.get("nodes", []),
+                    edges=graph_data.get("edges", []),
+                    node_count=len(graph_data.get("nodes", [])),
+                    edge_count=len(graph_data.get("edges", [])),
+                    knowledge_base=request.knowledge_base or "default",
+                    data_source="graph_data.json"
+                )
+            )
+
+        else:  # GraphML格式
+            # 直接读取GraphML文件内容
+            xml_file = status_info["xml_file_path"]
+            with open(xml_file, 'r', encoding='utf-8') as f:
+                xml_content = f.read()
+
+            return BaseResponse(
+                data={
+                    "xml_content": xml_content,
+                    "knowledge_base": request.knowledge_base or "default",
+                    "data_source": "graph_chunk_entity_relation.graphml"
+                }
+            )
+
+    except Exception as e:
+        logger.error(f"获取图谱数据失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post(
+    "/knowledge-graph/visualize",
+    response_model=BaseResponse,
+    tags=["知识图谱可视化"],
+    summary="生成知识图谱可视化",
+    description="""
+    生成知识图谱的交互式可视化HTML内容。
+
+    **功能特性：**
+    - 基于pyvis生成交互式图谱
+    - 支持多种布局算法
+    - 可自定义节点和边的样式
+    - 自动处理数据转换
+
+    **可视化特性：**
+    - 节点可拖拽和缩放
+    - 鼠标悬停显示详细信息
+    - 支持节点搜索和高亮
+    - 响应式布局适配
+
+    **使用场景：**
+    - 知识图谱探索和分析
+    - 实体关系可视化
+    - 图谱结构理解
+    - 数据质量检查
+    """
+)
+async def visualize_knowledge_graph(request: GraphVisualizationRequest):
+    """生成知识图谱可视化"""
+    try:
+        # 确定工作目录
+        if request.knowledge_base:
+            working_dir = f"./knowledgeBase/{request.knowledge_base}"
+        else:
+            working_dir = settings.working_dir
+
+        # 检查文件状态
+        status_info = check_knowledge_graph_files(working_dir)
+
+        if not status_info["xml_file_exists"]:
+            raise HTTPException(
+                status_code=404,
+                detail="GraphML文件不存在，请先插入文档生成知识图谱"
+            )
+
+        # 确保JSON文件存在且是最新的
+        if (not status_info["json_file_exists"] or
+            status_info["status"] == "json_outdated"):
+            logger.info("正在转换GraphML到JSON...")
+            success = create_or_update_knowledge_graph_json(working_dir)
+            if not success:
+                raise HTTPException(
+                    status_code=500,
+                    detail="GraphML到JSON转换失败"
+                )
+
+        # 生成可视化
+        viz_result = await generate_graph_visualization(
+            working_dir,
+            request.max_nodes,
+            request.layout,
+            request.node_size_field,
+            request.edge_width_field
+        )
+
+        # 重新获取状态信息
+        status_info = check_knowledge_graph_files(working_dir)
+
+        return BaseResponse(
+            data=GraphVisualizationResponse(
+                html_content=viz_result["html_content"],
+                html_file_path=viz_result["html_file_path"],
+                node_count=viz_result["node_count"],
+                edge_count=viz_result["edge_count"],
+                knowledge_base=request.knowledge_base or "default",
+                graph_file_exists=status_info["xml_file_exists"],
+                json_file_exists=status_info["json_file_exists"]
+            )
+        )
+
+    except Exception as e:
+        logger.error(f"生成知识图谱可视化失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get(
+    "/knowledge-graph/files",
+    response_model=BaseResponse,
+    tags=["知识图谱可视化"],
+    summary="列出知识库中的图谱文件",
+    description="""
+    列出指定知识库中的所有图谱相关文件。
+
+    **返回文件类型：**
+    - GraphML文件 (.graphml)
+    - JSON数据文件 (.json)
+    - HTML可视化文件 (.html)
+
+    **文件信息包括：**
+    - 文件名和路径
+    - 文件大小
+    - 最后修改时间
+    - 文件类型
+
+    **使用场景：**
+    - 查看知识库中的图谱文件
+    - 管理可视化文件
+    - 文件状态监控
+    """
+)
+async def list_graph_files(knowledge_base: Optional[str] = None):
+    """列出知识库中的图谱文件"""
+    try:
+        # 确定工作目录
+        if knowledge_base:
+            working_dir = f"./knowledgeBase/{knowledge_base}"
+        else:
+            working_dir = settings.working_dir
+
+        if not os.path.exists(working_dir):
+            raise HTTPException(
+                status_code=404,
+                detail=f"知识库目录不存在: {working_dir}"
+            )
+
+        files = []
+
+        # 查找图谱相关文件
+        file_patterns = {
+            "*.graphml": "GraphML",
+            "*.json": "JSON",
+            "*.html": "HTML"
+        }
+
+        import glob
+        for pattern, file_type in file_patterns.items():
+            for file_path in glob.glob(os.path.join(working_dir, pattern)):
+                if os.path.isfile(file_path):
+                    stat = os.stat(file_path)
+                    files.append({
+                        "name": os.path.basename(file_path),
+                        "path": file_path,
+                        "type": file_type,
+                        "size": stat.st_size,
+                        "modified": stat.st_mtime,
+                        "relative_path": os.path.relpath(file_path, working_dir)
+                    })
+
+        # 按修改时间排序
+        files.sort(key=lambda x: x["modified"], reverse=True)
+
+        return BaseResponse(
+            data={
+                "knowledge_base": knowledge_base or "default",
+                "working_dir": working_dir,
+                "files": files,
+                "total_files": len(files)
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"列出图谱文件失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def generate_graph_visualization(
+    working_dir: str,
+    max_nodes: int = 100,
+    layout: str = "spring",
+    node_size_field: str = "degree",
+    edge_width_field: str = "weight"
+) -> Dict[str, Any]:
+    """生成图谱可视化HTML内容"""
+    import json
+    import random
+    import tempfile
+    import os
+
+    try:
+        # 动态导入pyvis和networkx
+        import pipmaster as pm
+        if not pm.is_installed("pyvis"):
+            pm.install("pyvis")
+        if not pm.is_installed("networkx"):
+            pm.install("networkx")
+
+        import networkx as nx
+        from pyvis.network import Network
+
+        # 读取JSON数据
+        json_file = os.path.join(working_dir, "graph_data.json")
+        with open(json_file, 'r', encoding='utf-8') as f:
+            graph_data = json.load(f)
+
+        nodes = graph_data.get("nodes", [])
+        edges = graph_data.get("edges", [])
+
+        # 限制节点数量
+        if len(nodes) > max_nodes:
+            nodes = nodes[:max_nodes]
+            # 过滤相关的边
+            node_ids = {node["id"] for node in nodes}
+            edges = [edge for edge in edges
+                    if edge["source"] in node_ids and edge["target"] in node_ids]
+
+        # 创建NetworkX图
+        G = nx.Graph()
+
+        # 添加节点
+        for node in nodes:
+            G.add_node(
+                node["id"],
+                entity_type=node.get("entity_type", ""),
+                description=node.get("description", ""),
+                source_id=node.get("source_id", "")
+            )
+
+        # 添加边
+        for edge in edges:
+            if edge["source"] in G.nodes and edge["target"] in G.nodes:
+                G.add_edge(
+                    edge["source"],
+                    edge["target"],
+                    weight=edge.get("weight", 1.0),
+                    description=edge.get("description", ""),
+                    keywords=edge.get("keywords", "")
+                )
+
+        # 创建Pyvis网络
+        net = Network(
+            height="600px",
+            width="100%",
+            bgcolor="#ffffff",
+            font_color="black",
+            notebook=False
+        )
+
+        # 设置物理引擎
+        net.set_options("""
+        var options = {
+          "physics": {
+            "enabled": true,
+            "stabilization": {"iterations": 100}
+          }
+        }
+        """)
+
+        # 从NetworkX转换到Pyvis
+        net.from_nx(G)
+
+        # 自定义节点样式
+        for i, node in enumerate(net.nodes):
+            # 随机颜色
+            node["color"] = "#{:06x}".format(random.randint(0, 0xFFFFFF))
+
+            # 获取节点ID
+            node_id = node.get("id", node.get("label", ""))
+
+            # 从原始图数据获取节点属性
+            node_data = G.nodes.get(node_id, {})
+
+            # 设置标题（悬停显示）
+            title_parts = [f"ID: {node_id}"]
+            if "entity_type" in node_data and node_data["entity_type"]:
+                title_parts.append(f"类型: {node_data['entity_type']}")
+            if "description" in node_data and node_data["description"]:
+                desc = node_data["description"][:100] + "..." if len(node_data["description"]) > 100 else node_data["description"]
+                title_parts.append(f"描述: {desc}")
+            node["title"] = "\\n".join(title_parts)
+
+            # 设置节点大小（基于度数）
+            degree = G.degree(node_id) if node_id in G.nodes else 1
+            node["size"] = max(10, min(50, degree * 3))
+
+        # 自定义边样式
+        for i, edge in enumerate(net.edges):
+            # 获取边的源和目标节点
+            source = edge.get("from", "")
+            target = edge.get("to", "")
+
+            # 从原始图数据获取边属性
+            if G.has_edge(source, target):
+                edge_data = G.edges[source, target]
+
+                if "description" in edge_data and edge_data["description"]:
+                    edge["title"] = edge_data["description"]
+
+                # 设置边宽度
+                weight = edge_data.get("weight", 1.0)
+                edge["width"] = max(1, min(10, weight * 2))
+            else:
+                edge["width"] = 2
+
+        # 生成HTML文件到知识库目录
+        html_filename = "knowledge_graph_visualization.html"
+        html_file_path = os.path.join(working_dir, html_filename)
+
+        # 生成HTML
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False) as tmp_file:
+            net.save_graph(tmp_file.name)
+
+            # 读取生成的HTML内容
+            with open(tmp_file.name, 'r', encoding='utf-8') as f:
+                html_content = f.read()
+
+            # 保存到知识库目录
+            with open(html_file_path, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+
+            logger.info(f"知识图谱可视化HTML已保存到: {html_file_path}")
+
+            # 清理临时文件
+            os.unlink(tmp_file.name)
+
+        return {
+            "html_content": html_content,
+            "html_file_path": html_file_path,
+            "node_count": len(nodes),
+            "edge_count": len(edges)
+        }
+
+    except Exception as e:
+        logger.error(f"生成可视化失败: {e}")
+        raise
 
 
 if __name__ == "__main__":

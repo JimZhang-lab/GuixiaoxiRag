@@ -16,9 +16,10 @@ def render_sidebar():
     # 导航菜单
     pages = [
         "欢迎页面",
-        "系统状态", 
+        "系统状态",
         "文档管理",
         "智能查询",
+        "知识图谱可视化",
         "知识库管理",
         "语言设置",
         "服务配置",
@@ -1156,3 +1157,351 @@ def render_monitoring_dashboard(api_client):
                     st.success("🎉 系统整体运行正常！")
                 else:
                     st.error("⚠️ 系统存在异常，请检查相关组件")
+
+
+def render_knowledge_graph_visualization(api_client):
+    """渲染知识图谱可视化界面"""
+    st.subheader("🕸️ 知识图谱可视化")
+
+    # 知识库选择
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
+        knowledge_bases = api_client.list_knowledge_bases()
+
+        # 调试信息
+        if st.checkbox("显示调试信息", value=False):
+            st.write(f"🔍 知识库调试信息:")
+            st.write(f"knowledge_bases类型: {type(knowledge_bases)}")
+            st.write(f"knowledge_bases内容: {knowledge_bases}")
+
+        if knowledge_bases:
+            try:
+                # knowledge_bases 是知识库列表
+                if isinstance(knowledge_bases, list) and len(knowledge_bases) > 0:
+                    if isinstance(knowledge_bases[0], dict):
+                        kb_names = [kb["name"] for kb in knowledge_bases if isinstance(kb, dict) and "name" in kb]
+                    else:
+                        st.error(f"❌ 知识库数据格式错误，期望字典列表，实际得到: {type(knowledge_bases[0])}")
+                        kb_names = []
+                else:
+                    kb_names = []
+
+                selected_kb = st.selectbox(
+                    "选择知识库",
+                    ["default"] + kb_names,
+                    help="选择要可视化的知识库"
+                )
+            except Exception as e:
+                st.error(f"❌ 处理知识库列表时出错: {e}")
+                selected_kb = st.text_input("知识库名称", value="default")
+        else:
+            selected_kb = st.text_input("知识库名称", value="default")
+
+    with col2:
+        if st.button("🔄 刷新状态"):
+            st.rerun()
+
+    # 获取图谱状态
+    with st.spinner("检查图谱状态..."):
+        try:
+            graph_status = api_client.get_graph_status(selected_kb if selected_kb != "default" else None)
+        except Exception as e:
+            st.error(f"❌ 获取图谱状态时出错: {e}")
+            return
+
+    if not graph_status:
+        st.error("❌ 无法获取图谱状态")
+        return
+
+    # 显示状态信息
+    st.markdown("### 📊 图谱状态")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric(
+            "XML文件",
+            "存在" if graph_status["xml_file_exists"] else "不存在",
+            f"{graph_status['xml_file_size']} bytes" if graph_status["xml_file_exists"] else None
+        )
+
+    with col2:
+        st.metric(
+            "JSON文件",
+            "存在" if graph_status["json_file_exists"] else "不存在",
+            f"{graph_status['json_file_size']} bytes" if graph_status["json_file_exists"] else None
+        )
+
+    with col3:
+        status_color = {
+            "up_to_date": "🟢",
+            "json_missing": "🟡",
+            "json_outdated": "🟠",
+            "xml_missing": "🔴",
+            "error": "🔴"
+        }
+        st.metric(
+            "状态",
+            f"{status_color.get(graph_status['status'], '❓')} {graph_status['status']}"
+        )
+
+    # 如果没有XML文件，显示提示
+    if not graph_status["xml_file_exists"]:
+        st.warning("⚠️ 该知识库还没有生成知识图谱，请先插入一些文档。")
+        return
+
+    # 可视化参数设置
+    st.markdown("### ⚙️ 可视化设置")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        max_nodes = st.slider("最大节点数", 10, 500, 100, help="限制显示的节点数量以提高性能")
+
+    with col2:
+        layout = st.selectbox(
+            "布局算法",
+            ["spring", "circular", "random", "shell"],
+            help="选择图谱布局算法"
+        )
+
+    with col3:
+        node_size_field = st.selectbox(
+            "节点大小依据",
+            ["degree", "betweenness", "closeness", "fixed"],
+            help="节点大小的计算依据"
+        )
+
+    # 转换和可视化按钮
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        if st.button("🔄 转换到JSON", help="将GraphML文件转换为JSON格式"):
+            with st.spinner("转换中..."):
+                try:
+                    result = api_client.convert_graph_to_json(selected_kb if selected_kb != "default" else None)
+                    if result:
+                        st.success("✅ 转换成功！")
+                        st.rerun()
+                    else:
+                        st.error("❌ 转换失败")
+                except Exception as e:
+                    st.error(f"❌ 转换时出错: {e}")
+
+    with col2:
+        if st.button("📊 获取图谱数据", help="获取图谱的节点和边数据"):
+            with st.spinner("获取数据中..."):
+                try:
+                    graph_data = api_client.get_graph_data(selected_kb if selected_kb != "default" else None)
+                    if graph_data:
+                        st.session_state.graph_data = graph_data
+                        st.success(f"✅ 获取成功！节点: {graph_data.get('node_count', 0)}, 边: {graph_data.get('edge_count', 0)}")
+                    else:
+                        st.error("❌ 获取数据失败")
+                except Exception as e:
+                    st.error(f"❌ 获取数据时出错: {e}")
+
+    with col3:
+        if st.button("🎨 生成可视化", help="生成交互式图谱可视化"):
+            with st.spinner("生成可视化中..."):
+                try:
+                    viz_result = api_client.visualize_knowledge_graph(
+                        knowledge_base=selected_kb if selected_kb != "default" else None,
+                        max_nodes=max_nodes,
+                        layout=layout,
+                        node_size_field=node_size_field
+                    )
+                    if viz_result:
+                        st.session_state.graph_visualization = viz_result
+                        st.success("✅ 可视化生成成功！")
+                    else:
+                        st.error("❌ 可视化生成失败")
+                except Exception as e:
+                    st.error(f"❌ 生成可视化时出错: {e}")
+                    import traceback
+                    st.code(traceback.format_exc())
+
+    # 显示图谱数据
+    if 'graph_data' in st.session_state:
+        st.markdown("### 📋 图谱数据")
+
+        graph_data = st.session_state.graph_data
+
+        tab1, tab2, tab3 = st.tabs(["📊 统计", "🔵 节点", "🔗 边"])
+
+        with tab1:
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("节点总数", graph_data["node_count"])
+            with col2:
+                st.metric("边总数", graph_data["edge_count"])
+            with col3:
+                st.metric("知识库", graph_data["knowledge_base"])
+            with col4:
+                st.metric("数据来源", graph_data["data_source"])
+
+        with tab2:
+            if graph_data["nodes"]:
+                nodes_df = pd.DataFrame(graph_data["nodes"])
+                st.dataframe(nodes_df, use_container_width=True)
+
+                # 节点类型分布
+                if "entity_type" in nodes_df.columns:
+                    type_counts = nodes_df["entity_type"].value_counts()
+                    fig = px.pie(
+                        values=type_counts.values,
+                        names=type_counts.index,
+                        title="节点类型分布"
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("没有节点数据")
+
+        with tab3:
+            if graph_data["edges"]:
+                edges_df = pd.DataFrame(graph_data["edges"])
+                st.dataframe(edges_df, use_container_width=True)
+
+                # 边权重分布
+                if "weight" in edges_df.columns:
+                    fig = px.histogram(
+                        edges_df,
+                        x="weight",
+                        title="边权重分布",
+                        nbins=20
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("没有边数据")
+
+    # 显示可视化
+    if 'graph_visualization' in st.session_state:
+        st.markdown("### 🎨 交互式图谱可视化")
+
+        viz_data = st.session_state.graph_visualization
+
+        # 显示可视化统计
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.info(f"📊 节点数: {viz_data.get('node_count', 'N/A')}")
+        with col2:
+            st.info(f"🔗 边数: {viz_data.get('edge_count', 'N/A')}")
+        with col3:
+            if "html_file_path" in viz_data:
+                st.info(f"📁 文件: {viz_data['html_file_path'].split('/')[-1]}")
+            else:
+                st.info("📁 文件: N/A")
+
+        # 显示HTML可视化
+        if "html_content" in viz_data:
+            st.components.v1.html(
+                viz_data["html_content"],
+                height=600,
+                scrolling=True
+            )
+        else:
+            st.error("❌ 可视化内容不可用")
+
+        # 下载和文件信息
+        col1, col2 = st.columns(2)
+
+        with col1:
+            if st.button("💾 下载可视化HTML"):
+                st.download_button(
+                    label="下载HTML文件",
+                    data=viz_data["html_content"],
+                    file_name=f"knowledge_graph_{selected_kb}_{int(time.time())}.html",
+                    mime="text/html"
+                )
+
+        with col2:
+            if "html_file_path" in viz_data:
+                st.info(f"💡 HTML文件已保存到知识库目录:\n`{viz_data['html_file_path']}`")
+            else:
+                st.info("💡 HTML文件将保存到知识库目录")
+
+    # 显示知识库文件列表
+    st.markdown("### 📁 知识库文件")
+
+    if st.button("🔄 刷新文件列表"):
+        st.rerun()
+
+    with st.spinner("获取文件列表..."):
+        try:
+            files_data = api_client.list_graph_files(selected_kb if selected_kb != "default" else None)
+        except Exception as e:
+            st.error(f"❌ 获取文件列表时出错: {e}")
+            files_data = None
+
+    if files_data:
+        files = files_data.get("files", [])
+
+        # 调试信息
+        st.write(f"🔍 调试信息:")
+        st.write(f"files_data类型: {type(files_data)}")
+        st.write(f"files类型: {type(files)}")
+        if files:
+            st.write(f"files长度: {len(files)}")
+            st.write(f"第一个文件类型: {type(files[0])}")
+            st.write(f"第一个文件内容: {files[0]}")
+
+        if files and len(files) > 0:
+            # 检查文件数据格式
+            if isinstance(files[0], dict):
+                # 创建文件表格
+                import datetime
+
+                file_rows = []
+                for file_info in files:
+                    try:
+                        modified_time = datetime.datetime.fromtimestamp(file_info["modified"]).strftime("%Y-%m-%d %H:%M:%S")
+                        size_mb = file_info["size"] / (1024 * 1024)
+
+                        file_rows.append({
+                            "文件名": file_info["name"],
+                            "类型": file_info["type"],
+                            "大小(MB)": f"{size_mb:.2f}",
+                            "修改时间": modified_time,
+                            "相对路径": file_info["relative_path"]
+                        })
+                    except Exception as e:
+                        st.error(f"处理文件信息时出错: {e}")
+                        st.write(f"问题文件: {file_info}")
+
+                if file_rows:
+                    files_df = pd.DataFrame(file_rows)
+                    st.dataframe(files_df, use_container_width=True)
+
+                    # 文件统计
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        try:
+                            graphml_count = len([f for f in files if isinstance(f, dict) and f.get("type") == "GraphML"])
+                            st.metric("GraphML文件", graphml_count)
+                        except Exception as e:
+                            st.error(f"统计GraphML文件时出错: {e}")
+                    with col2:
+                        try:
+                            json_count = len([f for f in files if isinstance(f, dict) and f.get("type") == "JSON"])
+                            st.metric("JSON文件", json_count)
+                        except Exception as e:
+                            st.error(f"统计JSON文件时出错: {e}")
+                    with col3:
+                        try:
+                            html_count = len([f for f in files if isinstance(f, dict) and f.get("type") == "HTML"])
+                            st.metric("HTML文件", html_count)
+                        except Exception as e:
+                            st.error(f"统计HTML文件时出错: {e}")
+                    with col4:
+                        try:
+                            total_size = sum(f.get("size", 0) for f in files if isinstance(f, dict)) / (1024 * 1024)
+                            st.metric("总大小(MB)", f"{total_size:.2f}")
+                        except Exception as e:
+                            st.error(f"计算总大小时出错: {e}")
+            else:
+                st.error(f"❌ 文件数据格式错误，期望字典列表，实际得到: {type(files[0])}")
+        else:
+            st.info("📂 该知识库中暂无图谱文件")
+    else:
+        st.error("❌ 无法获取文件列表")

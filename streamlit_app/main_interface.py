@@ -18,7 +18,8 @@ from .components import (
     render_knowledge_base_management,
     render_language_settings,
     render_monitoring_dashboard,
-    render_service_config
+    render_service_config,
+    render_knowledge_graph_visualization
 )
 
 def run_main_interface():
@@ -47,6 +48,8 @@ def run_main_interface():
         render_document_management_page()
     elif page == "智能查询":
         render_query_interface_page()
+    elif page == "知识图谱可视化":
+        render_knowledge_graph_visualization_page()
     elif page == "知识库管理":
         render_knowledge_base_management_page()
     elif page == "语言设置":
@@ -84,6 +87,30 @@ def render_welcome_page():
         if st.button("开始查询", key="welcome_query"):
             st.session_state.current_page = "智能查询"
             st.rerun()
+
+    # 第二行功能
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.subheader("🕸️ 知识图谱可视化")
+        st.write("交互式知识图谱可视化、实体关系分析、图谱探索")
+        if st.button("查看图谱", key="welcome_graph"):
+            st.session_state.current_page = "知识图谱可视化"
+            st.rerun()
+
+    with col2:
+        st.subheader("🗄️ 知识库管理")
+        st.write("创建、切换、管理多个知识库，导入导出数据")
+        if st.button("管理知识库", key="welcome_kb"):
+            st.session_state.current_page = "知识库管理"
+            st.rerun()
+
+    with col3:
+        st.subheader("📈 监控面板")
+        st.write("系统性能监控、资源使用统计、健康状态检查")
+        if st.button("查看监控", key="welcome_monitor"):
+            st.session_state.current_page = "监控面板"
+            st.rerun()
     
     st.markdown("---")
     
@@ -93,10 +120,12 @@ def render_welcome_page():
     features = [
         ("🗄️ 多知识库管理", "支持创建、切换、管理多个独立的知识库"),
         ("🌍 多语言支持", "支持中文和英文回答，可灵活切换"),
+        ("🕸️ 知识图谱可视化", "交互式图谱可视化，支持实体关系探索"),
         ("📊 实时监控", "查看系统性能指标、知识图谱统计"),
         ("🔧 灵活配置", "支持性能优化、服务配置管理"),
-        ("📖 完整API", "28个API端点，覆盖所有功能"),
-        ("🛠️ 易用工具", "提供命令行工具和Python客户端")
+        ("📖 完整API", "30+个API端点，覆盖所有功能"),
+        ("🛠️ 易用工具", "提供命令行工具和Python客户端"),
+        ("🎨 可视化分析", "支持多种布局算法和交互式图谱探索")
     ]
     
     for i in range(0, len(features), 2):
@@ -143,6 +172,16 @@ python main.py
 回答语言: 中文
         """)
 
+    with st.expander("4. 可视化知识图谱"):
+        st.code("""
+# 在知识图谱可视化页面
+1. 选择知识库: default
+2. 检查图谱状态
+3. 如需要，点击"转换到JSON"
+4. 设置可视化参数（最大节点数、布局等）
+5. 点击"生成可视化"查看交互式图谱
+        """)
+
 def render_system_status_page():
     """渲染系统状态页面"""
     st.header("📊 系统状态")
@@ -177,3 +216,8 @@ def render_monitoring_dashboard_page():
     """渲染监控面板页面"""
     st.header("📈 监控面板")
     render_monitoring_dashboard(st.session_state.api_client)
+
+def render_knowledge_graph_visualization_page():
+    """渲染知识图谱可视化页面"""
+    st.header("🕸️ 知识图谱可视化")
+    render_knowledge_graph_visualization(st.session_state.api_client)

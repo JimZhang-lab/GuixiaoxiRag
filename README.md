@@ -2,18 +2,16 @@
 
 <div align="center">
 
-![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)
+![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)
+![FastAPI](https://img.shields.io/badge/FastAPI-Latest-green.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen.svg)
 
-**基于 GuiXiaoXiRag 的知识图谱检索增强生成（RAG）FastAPI 服务**
-
-**文档均用 Claude 4 opus 生成**
+**基于 LightRAG 的知识图谱检索增强生成（RAG）FastAPI 服务**
 
 *提供企业级的智能问答和知识管理解决方案*
 
-[📖 文档](docs/README.md) • [🚀 快速开始](docs/getting-started/QUICK_START.md) • [🌐 API 文档](http://localhost:8002/docs) • [💬 讨论](https://github.com/your-repo/discussions)
+[📖 文档](docs/README.md) • [🚀 快速开始](docs/getting-started/QUICK_START.md) • [🌐 API 文档](http://localhost:8002/docs)
 
 </div>
 
@@ -23,21 +21,21 @@
 
 ### 🧠 智能检索引擎
 - **多模式查询**: 支持 6 种查询模式（hybrid、local、global、naive、mix、bypass）
-- **知识图谱**: 集成先进的图谱技术，提供关系推理能力
+- **知识图谱**: 基于 LightRAG 的先进图谱技术，提供关系推理能力
 - **语义理解**: 深度语义匹配，精准理解用户意图
 
 ### 📚 文档处理系统
-- **多格式支持**: TXT、PDF、DOCX、JSON、XML、CSV 等 7+ 种格式
+- **多格式支持**: TXT、PDF、DOCX、MD、JSON、XML、CSV 等格式
 - **批量处理**: 高效的批量文档导入和处理
 - **智能解析**: 自动识别文档结构和关键信息
 
 ### 🗄️ 知识库管理
 - **多租户支持**: 独立的知识库空间，数据隔离
 - **动态切换**: 支持运行时切换不同知识库
-- **备份恢复**: 完整的数据备份和恢复机制
+- **可视化管理**: 知识图谱可视化和交互式管理
 
 ### 🌍 多语言支持
-- **多语言处理**: 支持中文、英文
+- **多语言处理**: 支持中文、英文等多种语言
 - **跨语言检索**: 支持跨语言知识检索和回答生成
 
 ### 🎨 用户界面
@@ -48,25 +46,24 @@
 ## 🏗️ 项目架构
 
 ```
-guixiaoxi2/
+GuixiaoxiRag/
 ├── 📁 server/                    # FastAPI 服务端
-│   ├── 🚀 main.py               # 主应用入口和路由定义
+│   ├── 🚀 api.py                # 主应用入口和路由定义
 │   ├── ⚙️ config.py             # 配置管理和环境变量
 │   ├── 🧠 guixiaoxirag_service.py # GuiXiaoXiRag 服务封装
 │   ├── 📋 models.py             # Pydantic 数据模型
 │   ├── 🔧 middleware.py         # 自定义中间件
 │   ├── 🛠️ utils.py              # 工具函数和辅助方法
 │   ├── 📊 knowledge_base_manager.py # 知识库管理器
-│   ├── ⚡ performance_config.py  # 性能配置管理
-│   └── 📖 docs/                 # 服务端文档
-│       ├── api_guide.md         # API 使用指南
-│       ├── quickstart.md        # 快速开始指南
-│       └── swagger_optimization_summary.md # Swagger优化总结
+│   └── ⚡ performance_config.py  # 性能配置管理
+├── 📁 streamlit_app/            # Streamlit Web界面
+│   ├── 🎨 main_interface.py     # 主界面
+│   ├── 🔧 api_client.py         # API客户端
+│   ├── 📊 components.py         # UI组件
+│   └── ⚙️ config.py             # 界面配置
 ├── 📁 test/                     # 测试套件
 │   ├── 🧪 test_api.py           # API 接口测试
 │   ├── 🧪 test_guixiaoxirag_service.py # 服务层测试
-│   ├── 📝 insertTest.py         # 插入功能测试
-│   ├── 🔍 queryTest.py          # 查询功能测试
 │   └── 🏃 run_tests.py          # 测试运行器
 ├── 📁 scripts/                  # 脚本工具
 │   └── 💻 guixiaoxirag_cli.py   # 命令行工具
@@ -74,25 +71,15 @@ guixiaoxi2/
 │   └── 📘 api_client.py         # API 客户端示例
 ├── 📁 docs/                     # 项目文档
 │   ├── 📁 getting-started/      # 快速上手指南
-│   │   ├── QUICK_START.md       # 5分钟快速开始
-│   │   ├── CONFIGURATION_GUIDE.md # 配置指南
-│   │   ├── DEPLOYMENT_GUIDE.md  # 部署指南
-│   │   └── TROUBLESHOOTING.md   # 故障排除
 │   ├── 📁 api/                  # API文档
-│   │   ├── API_REFERENCE.md     # 完整API参考
-│   │   └── API_EXAMPLES.md      # API调用示例
 │   ├── 📁 features/             # 功能指南
-│   │   ├── STREAMLIT_INTERFACE_GUIDE.md # Web界面指南
-│   │   ├── MAIN_LAUNCHER_GUIDE.md # 主启动器指南
-│   │   └── KNOWLEDGE_BASE_LANGUAGE_FEATURES.md # 多语言功能
-│   ├── 📁 project/              # 项目信息
-│   │   ├── PROJECT_ARCHITECTURE.md # 项目架构
-│   │   └── PROJECT_SUMMARY.md   # 项目总结
-│   └── README.md                # 文档导航中心
+│   └── 📁 project/              # 项目信息
+├── 📁 deployment/               # 部署配置
+│   ├── 🐳 Dockerfile           # Docker镜像
+│   ├── 🐙 docker-compose.yml   # 容器编排
+│   └── 🌐 nginx/               # 反向代理配置
 ├── 📁 logs/                     # 日志文件
 ├── 📁 knowledgeBase/            # 知识库存储
-│   ├── default/                 # 默认知识库
-│   └── [custom_kb]/             # 自定义知识库
 ├── 📁 guixiaoxiRag/             # 核心RAG引擎
 ├── 🎨 start_streamlit.py        # Streamlit Web界面启动器
 ├── 🚀 main.py                   # 主启动文件
@@ -104,7 +91,7 @@ guixiaoxi2/
 ### 🔧 核心组件说明
 
 - **🚀 main.py**: 智能启动器，自动环境检查和服务启动
-- **🧠 GuiXiaoXiRag服务**: 核心RAG引擎的高级封装
+- **🧠 GuiXiaoXiRag服务**: 基于 LightRAG 的核心引擎封装
 - **📊 知识库管理器**: 多租户知识库的创建、管理和切换
 - **🎨 Web界面**: 基于Streamlit的可视化管理界面
 - **💻 CLI工具**: 强大的命令行操作工具
@@ -115,18 +102,22 @@ guixiaoxi2/
 ### 1. 环境准备
 
 ```bash
-# 创建Python环境
-conda create -n guixiaoxirag python=3.12.*
+# 克隆项目
+git clone <repository-url>
+cd GuixiaoxiRag
 
-# 激活Python环境
-conda activate guixiaoxirag  # 或您的环境名称
+# 创建Python环境（推荐Python 3.12+）
+conda create -n guixiaoxirag python=3.12
+conda activate guixiaoxirag
 
 # 安装依赖
 pip install -r requirements.txt
 
+# 安装textract（如果需要处理PDF等文档）
 unzip textract-16.5.zip
 cd textract-16.5
 pip install .
+cd ..
 ```
 
 ### 2. 配置设置
@@ -138,6 +129,13 @@ cp .env.example .env
 # 编辑配置文件，设置API密钥等
 vim .env
 ```
+
+**重要配置项**：
+- `OPENAI_API_BASE`: LLM服务地址（默认：http://localhost:8100/v1）
+- `OPENAI_EMBEDDING_API_BASE`: Embedding服务地址（默认：http://localhost:8200/v1）
+- `OPENAI_CHAT_API_KEY`: API密钥
+- `OPENAI_CHAT_MODEL`: 聊天模型（默认：qwen14b）
+- `OPENAI_EMBEDDING_MODEL`: 嵌入模型（默认：embedding_qwen）
 
 ### 3. 启动服务
 
@@ -217,10 +215,15 @@ open http://localhost:8501
 主要配置项（`.env` 文件）：
 
 ```env
+# 应用信息
+APP_NAME=GuiXiaoXiRag FastAPI Service
+APP_VERSION=1.0.0
+
 # 服务配置
 HOST=0.0.0.0
 PORT=8002
 DEBUG=false
+WORKERS=1
 
 # 大模型配置
 OPENAI_API_BASE=http://localhost:8100/v1
@@ -229,9 +232,19 @@ OPENAI_CHAT_API_KEY=your_api_key_here
 OPENAI_CHAT_MODEL=qwen14b
 OPENAI_EMBEDDING_MODEL=embedding_qwen
 
+# Embedding配置
+EMBEDDING_DIM=1536
+MAX_TOKEN_SIZE=8192
+
 # 知识库配置
 WORKING_DIR=./knowledgeBase/default
 LOG_LEVEL=INFO
+LOG_DIR=./logs
+
+# Streamlit配置
+STREAMLIT_HOST=0.0.0.0
+STREAMLIT_PORT=8501
+STREAMLIT_API_URL=http://localhost:8002
 ```
 
 详细配置说明请参考：[配置指南](docs/getting-started/CONFIGURATION_GUIDE.md)
@@ -348,42 +361,13 @@ curl "http://localhost:8002/logs?lines=100"
 
 ### 🧠 核心技术
 - **[LightRAG](https://github.com/HKUDS/LightRAG)** - 提供强大的 RAG (检索增强生成) 核心技术
-- **[LangChain](https://github.com/langchain-ai/langchain)** - 大语言模型应用开发框架
-- **[OpenAI](https://openai.com/)** - 大语言模型和 Embedding 技术
-
-### 🚀 Web 框架和服务
 - **[FastAPI](https://fastapi.tiangolo.com/)** - 现代、快速的 Python Web 框架
-- **[Uvicorn](https://www.uvicorn.org/)** - 高性能 ASGI 服务器
 - **[Streamlit](https://streamlit.io/)** - 快速构建数据应用的 Python 库
 - **[Pydantic](https://pydantic-docs.helpmanual.io/)** - 数据验证和设置管理
-
-### 📚 文档处理
-- **[PyPDF2](https://github.com/py-pdf/PyPDF2)** - PDF 文件处理
-- **[python-docx](https://github.com/python-openxml/python-docx)** - Word 文档处理
-- **[BeautifulSoup](https://www.crummy.com/software/BeautifulSoup/)** - HTML/XML 解析
-
-### 🔍 搜索和向量化
-- **[FAISS](https://github.com/facebookresearch/faiss)** - 高效的相似性搜索和聚类
-- **[Sentence Transformers](https://www.sbert.net/)** - 句子和文本嵌入
-- **[NetworkX](https://networkx.org/)** - 复杂网络分析和图处理
-
-### 🛠️ 开发工具
-- **[Pytest](https://pytest.org/)** - Python 测试框架
-- **[Black](https://github.com/psf/black)** - Python 代码格式化工具
-- **[Requests](https://requests.readthedocs.io/)** - HTTP 库
 
 ### 🌟 特别感谢
 - **香港大学数据科学研究所 (HKUDS)** - LightRAG 技术的原创团队
 - **开源社区** - 为项目提供了丰富的开源工具和库
-- **所有贡献者** - 感谢每一位为项目做出贡献的开发者
-- **用户和测试者** - 感谢提供宝贵反馈和建议的用户们
-
-### 💡 灵感来源
-本项目的设计和实现受到了以下项目和论文的启发：
-- **RAG (Retrieval-Augmented Generation)** 相关研究论文
-- **知识图谱** 和 **图神经网络** 相关技术
-- **多模态检索** 和 **语义搜索** 最新进展
-- **企业级知识管理** 系统的最佳实践
 
 ---
 
@@ -393,6 +377,6 @@ curl "http://localhost:8002/logs?lines=100"
 
 *让我们一起构建更智能的知识管理系统* 🚀
 
-**Made with ❤️ by the GuiXiaoXiRag FastAPI Team**
+**基于 LightRAG 构建，致力于提供企业级 RAG 解决方案**
 
 </div>

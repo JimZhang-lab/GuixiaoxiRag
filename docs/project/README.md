@@ -8,9 +8,7 @@
 - **[项目架构](PROJECT_ARCHITECTURE.md)** - 详细的项目结构和架构说明
 - **[项目总结](PROJECT_SUMMARY.md)** - 项目概览和特性总结
 
-### 📊 优化记录
-- **[配置优化总结](CONFIG_OPTIMIZATION_SUMMARY.md)** - 配置系统优化记录
-- **[文档优化总结](DOCUMENTATION_OPTIMIZATION_SUMMARY.md)** - 文档系统优化记录
+
 
 ## 🏗️ 项目架构
 

@@ -231,3 +231,53 @@ class DirectoryInsertRequest(BaseModel):
     directory_path: str = Field(..., description="目录路径")
     knowledge_base: Optional[str] = Field(None, description="知识库名称")
     language: Optional[SupportedLanguage] = Field(None, description="处理语言")
+
+
+# 知识图谱可视化相关模型
+class GraphVisualizationRequest(BaseModel):
+    """知识图谱可视化请求"""
+    knowledge_base: Optional[str] = Field(None, description="知识库名称")
+    max_nodes: Optional[int] = Field(default=100, description="最大显示节点数")
+    layout: Optional[str] = Field(default="spring", description="布局算法")
+    node_size_field: Optional[str] = Field(default="degree", description="节点大小字段")
+    edge_width_field: Optional[str] = Field(default="weight", description="边宽度字段")
+
+
+class GraphVisualizationResponse(BaseModel):
+    """知识图谱可视化响应"""
+    html_content: str = Field(..., description="可视化HTML内容")
+    html_file_path: str = Field(..., description="HTML文件保存路径")
+    node_count: int = Field(..., description="节点数量")
+    edge_count: int = Field(..., description="边数量")
+    knowledge_base: str = Field(..., description="知识库名称")
+    graph_file_exists: bool = Field(..., description="图谱文件是否存在")
+    json_file_exists: bool = Field(..., description="JSON文件是否存在")
+
+
+class GraphDataRequest(BaseModel):
+    """图谱数据请求"""
+    knowledge_base: Optional[str] = Field(None, description="知识库名称")
+    format: Literal["json", "graphml"] = Field(default="json", description="数据格式")
+
+
+class GraphDataResponse(BaseModel):
+    """图谱数据响应"""
+    nodes: List[Dict[str, Any]] = Field(..., description="节点数据")
+    edges: List[Dict[str, Any]] = Field(..., description="边数据")
+    node_count: int = Field(..., description="节点数量")
+    edge_count: int = Field(..., description="边数量")
+    knowledge_base: str = Field(..., description="知识库名称")
+    data_source: str = Field(..., description="数据来源文件")
+
+
+class GraphStatusResponse(BaseModel):
+    """图谱状态响应"""
+    knowledge_base: str = Field(..., description="知识库名称")
+    working_dir: str = Field(..., description="工作目录")
+    xml_file_exists: bool = Field(..., description="XML文件是否存在")
+    xml_file_size: int = Field(..., description="XML文件大小")
+    json_file_exists: bool = Field(..., description="JSON文件是否存在")
+    json_file_size: int = Field(..., description="JSON文件大小")
+    last_xml_modified: Optional[float] = Field(None, description="XML文件最后修改时间")
+    last_json_modified: Optional[float] = Field(None, description="JSON文件最后修改时间")
+    status: str = Field(..., description="状态描述")
