@@ -7,7 +7,7 @@
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen.svg)
 
-**基于 LightRAG 的知识图谱检索增强生成（RAG）FastAPI 服务**
+**GuiXiaoXi检索增强生成（RAG）FastAPI 服务**
 
 *提供企业级的智能问答和知识管理解决方案*
 
@@ -21,7 +21,7 @@
 
 ### 🧠 智能检索引擎
 - **多模式查询**: 支持 6 种查询模式（hybrid、local、global、naive、mix、bypass）
-- **知识图谱**: 基于 LightRAG 的先进图谱技术，提供关系推理能力
+- **知识图谱**: 基于图谱技术，提供关系推理能力
 - **语义理解**: 深度语义匹配，精准理解用户意图
 
 ### 📚 文档处理系统
@@ -345,7 +345,6 @@ curl "http://localhost:8002/logs?lines=100"
 ### 📈 技术指标
 - **🔍 查询模式**: 6 种智能检索模式
 - **📚 文档格式**: 支持 7+ 种主流格式
-- **🌍 语言支持**: 支持 8+ 种语言
 - **⚡ 响应速度**: 毫秒级查询响应
 - **🧪 测试覆盖**: 90%+ 功能测试覆盖率
 
@@ -376,7 +375,5 @@ curl "http://localhost:8002/logs?lines=100"
 **如果这个项目对您有帮助，请考虑给我们一个 ⭐ Star！**
 
 *让我们一起构建更智能的知识管理系统* 🚀
-
-**基于 LightRAG 构建，致力于提供企业级 RAG 解决方案**
 
 </div>
