@@ -33,12 +33,19 @@ class Settings(BaseSettings):
     # GuiXiaoXiRag配置
     working_dir: str = "./knowledgeBase/default"
 
-    # 大模型配置
+    # 大模型配置 - 支持用户自定义，未配置时使用默认值
     openai_api_base: str = "http://localhost:8100/v1"
     openai_embedding_api_base: str = "http://localhost:8200/v1"
     openai_chat_api_key: str = "your_api_key_here"
+    openai_embedding_api_key: str = "your_api_key_here"  # Embedding API密钥
     openai_chat_model: str = "qwen14b"
     openai_embedding_model: str = "embedding_qwen"
+
+    # 可选的自定义配置
+    custom_llm_provider: Optional[str] = None  # 自定义LLM提供商 (openai, azure, ollama, etc.)
+    custom_embedding_provider: Optional[str] = None  # 自定义Embedding提供商
+    azure_api_version: Optional[str] = None  # Azure API版本
+    azure_deployment_name: Optional[str] = None  # Azure部署名称
 
     # Embedding配置
     embedding_dim: int = 1536
@@ -107,6 +114,7 @@ ensure_directories()
 def validate_config():
     """验证配置的有效性"""
     errors = []
+    warnings = []
 
     # 验证端口范围
     if not (1 <= settings.port <= 65535):
@@ -115,9 +123,19 @@ def validate_config():
     if not (1 <= settings.streamlit_port <= 65535):
         errors.append(f"Streamlit端口号无效: {settings.streamlit_port}")
 
-    # 验证API密钥
+    # 智能验证API配置
     if settings.openai_chat_api_key == "your_api_key_here":
-        errors.append("请设置有效的OpenAI API密钥")
+        warnings.append("使用默认LLM API密钥，请在生产环境中设置有效的API密钥")
+
+    if settings.openai_embedding_api_key == "your_api_key_here":
+        warnings.append("使用默认Embedding API密钥，请在生产环境中设置有效的API密钥")
+
+    # 验证API基础URL格式
+    if not settings.openai_api_base.startswith(('http://', 'https://')):
+        errors.append(f"LLM API基础URL格式无效: {settings.openai_api_base}")
+
+    if not settings.openai_embedding_api_base.startswith(('http://', 'https://')):
+        errors.append(f"Embedding API基础URL格式无效: {settings.openai_embedding_api_base}")
 
     # 验证目录路径
     try:
@@ -131,17 +149,23 @@ def validate_config():
     if settings.max_file_size <= 0:
         errors.append("文件大小限制必须大于0")
 
+    # 输出验证结果
+    if warnings:
+        print("⚠️  配置警告:")
+        for warning in warnings:
+            print(f"   - {warning}")
+
     if errors:
-        print("⚠️  配置验证警告:")
+        print("❌ 配置错误:")
         for error in errors:
             print(f"   - {error}")
 
     return len(errors) == 0
 
-# 获取配置摘要
-def get_config_summary():
-    """获取配置摘要信息"""
-    return {
+# 智能配置处理函数
+def get_effective_config():
+    """获取有效的配置信息，处理用户自定义和默认值"""
+    config = {
         "app_name": settings.app_name,
         "version": settings.app_version,
         "host": settings.host,
@@ -149,12 +173,57 @@ def get_config_summary():
         "debug": settings.debug,
         "working_dir": settings.working_dir,
         "log_level": settings.log_level,
-        "openai_chat_model": settings.openai_chat_model,
-        "openai_embedding_model": settings.openai_embedding_model,
-        "embedding_dim": settings.embedding_dim,
+
+        # LLM配置
+        "llm": {
+            "api_base": settings.openai_api_base,
+            "api_key": "***" if settings.openai_chat_api_key != "your_api_key_here" else "未配置",
+            "model": settings.openai_chat_model,
+            "provider": settings.custom_llm_provider or "openai",
+        },
+
+        # Embedding配置
+        "embedding": {
+            "api_base": settings.openai_embedding_api_base,
+            "api_key": "***" if settings.openai_embedding_api_key != "your_api_key_here" else "未配置",
+            "model": settings.openai_embedding_model,
+            "dim": settings.embedding_dim,
+            "provider": settings.custom_embedding_provider or "openai",
+        },
+
+        # 其他配置
         "max_file_size_mb": settings.max_file_size // (1024 * 1024),
         "streamlit_port": settings.streamlit_port,
+        "max_token_size": settings.max_token_size,
+    }
+
+    # 添加Azure特定配置（如果配置了）
+    if settings.azure_api_version:
+        config["azure"] = {
+            "api_version": settings.azure_api_version,
+            "deployment_name": settings.azure_deployment_name,
+        }
+
+    return config
+
+# 获取配置摘要（保持向后兼容）
+def get_config_summary():
+    """获取配置摘要信息"""
+    effective_config = get_effective_config()
+    return {
+        "app_name": effective_config["app_name"],
+        "version": effective_config["version"],
+        "host": effective_config["host"],
+        "port": effective_config["port"],
+        "debug": effective_config["debug"],
+        "working_dir": effective_config["working_dir"],
+        "log_level": effective_config["log_level"],
+        "openai_chat_model": effective_config["llm"]["model"],
+        "openai_embedding_model": effective_config["embedding"]["model"],
+        "embedding_dim": effective_config["embedding"]["dim"],
+        "max_file_size_mb": effective_config["max_file_size_mb"],
+        "streamlit_port": effective_config["streamlit_port"],
     }
 
 # 导出常用配置
-__all__ = ["settings", "ensure_directories", "validate_config", "get_config_summary", "get_project_root"]
+__all__ = ["settings", "ensure_directories", "validate_config", "get_config_summary", "get_effective_config", "get_project_root"]

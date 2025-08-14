@@ -308,3 +308,48 @@ class StreamlitAPIClient:
         """获取系统日志"""
         result = self.request_sync("GET", f"/logs?lines={lines}")
         return result.get("data", {}).get("logs") if result and result.get("success") else None
+
+    # 配置管理方法
+    def get_effective_config(self) -> Optional[Dict]:
+        """获取有效配置"""
+        result = self.request_sync("GET", "/service/effective-config")
+        return result.get("data") if result and result.get("success") else None
+
+    def update_config(self, config_updates: Dict[str, Any]) -> Optional[Dict]:
+        """更新配置"""
+        result = self.request_sync("POST", "/service/config/update", json=config_updates)
+        return result.get("data") if result and result.get("success") else None
+
+    # 缓存管理方法
+    def get_cache_stats(self) -> Optional[Dict]:
+        """获取缓存统计信息"""
+        result = self.request_sync("GET", "/cache/stats")
+        return result.get("data") if result and result.get("success") else None
+
+    def clear_all_cache(self) -> Optional[Dict]:
+        """清理所有缓存"""
+        result = self.request_sync("DELETE", "/cache/clear")
+        return result.get("data") if result and result.get("success") else None
+
+    def clear_specific_cache(self, cache_type: str) -> Optional[Dict]:
+        """清理指定类型的缓存"""
+        result = self.request_sync("DELETE", f"/cache/clear/{cache_type}")
+        return result.get("data") if result and result.get("success") else None
+
+    # 文件上传方法（支持知识库参数）
+    def upload_file_with_kb(self, file_content: bytes, filename: str,
+                           knowledge_base: Optional[str] = None,
+                           language: Optional[str] = None,
+                           track_id: Optional[str] = None) -> Optional[Dict]:
+        """上传文件到指定知识库"""
+        files = {"file": (filename, file_content)}
+        data = {}
+        if knowledge_base:
+            data["knowledge_base"] = knowledge_base
+        if language:
+            data["language"] = language
+        if track_id:
+            data["track_id"] = track_id
+
+        result = self.request_sync("POST", "/insert/file", files=files, data=data)
+        return result.get("data") if result and result.get("success") else None

@@ -132,8 +132,126 @@ async def cmd_service(args):
 
     if args.service_command == "config":
         await client.get_service_config()
+    elif args.service_command == "effective-config":
+        await cmd_effective_config(args)
+    elif args.service_command == "update-config":
+        await cmd_update_config(args)
     elif args.service_command == "switch":
         await client.switch_knowledge_base(args.knowledge_base, args.language)
+
+
+async def cmd_effective_config(args):
+    """获取有效配置命令"""
+    client = GuiXiaoXiRagClient(args.url)
+
+    try:
+        import httpx
+        async with httpx.AsyncClient() as http_client:
+            response = await http_client.get(f"{args.url}/service/effective-config")
+
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("success"):
+                    config = data["data"]
+
+                    print("🔧 当前有效配置:")
+                    print(f"  应用名称: {config['app_name']}")
+                    print(f"  版本: {config['version']}")
+                    print(f"  服务地址: {config['host']}:{config['port']}")
+                    print(f"  调试模式: {config['debug']}")
+                    print(f"  工作目录: {config['working_dir']}")
+                    print(f"  日志级别: {config['log_level']}")
+
+                    print("\n🧠 LLM配置:")
+                    llm = config['llm']
+                    print(f"  API地址: {llm['api_base']}")
+                    print(f"  API密钥: {llm['api_key']}")
+                    print(f"  模型: {llm['model']}")
+                    print(f"  提供商: {llm['provider']}")
+
+                    print("\n📊 Embedding配置:")
+                    embedding = config['embedding']
+                    print(f"  API地址: {embedding['api_base']}")
+                    print(f"  API密钥: {embedding['api_key']}")
+                    print(f"  模型: {embedding['model']}")
+                    print(f"  维度: {embedding['dim']}")
+                    print(f"  提供商: {embedding['provider']}")
+
+                    print("\n⚙️ 其他配置:")
+                    print(f"  最大文件大小: {config['max_file_size_mb']}MB")
+                    print(f"  最大Token数: {config['max_token_size']}")
+                    print(f"  Streamlit端口: {config['streamlit_port']}")
+
+                    if 'azure' in config:
+                        print("\n☁️ Azure配置:")
+                        azure = config['azure']
+                        print(f"  API版本: {azure['api_version']}")
+                        print(f"  部署名称: {azure['deployment_name']}")
+
+                else:
+                    print(f"❌ 获取配置失败: {data.get('message', '未知错误')}")
+            else:
+                print(f"❌ 请求失败: HTTP {response.status_code}")
+
+    except Exception as e:
+        print(f"❌ 获取有效配置失败: {e}")
+
+
+async def cmd_update_config(args):
+    """更新配置命令"""
+    try:
+        import httpx
+
+        # 构建配置更新数据
+        config_data = {}
+
+        # 从命令行参数构建配置数据
+        if hasattr(args, 'llm_model') and args.llm_model:
+            config_data['openai_chat_model'] = args.llm_model
+        if hasattr(args, 'embedding_model') and args.embedding_model:
+            config_data['openai_embedding_model'] = args.embedding_model
+        if hasattr(args, 'llm_api_key') and args.llm_api_key:
+            config_data['openai_chat_api_key'] = args.llm_api_key
+        if hasattr(args, 'embedding_api_key') and args.embedding_api_key:
+            config_data['openai_embedding_api_key'] = args.embedding_api_key
+        if hasattr(args, 'llm_api_base') and args.llm_api_base:
+            config_data['openai_api_base'] = args.llm_api_base
+        if hasattr(args, 'embedding_api_base') and args.embedding_api_base:
+            config_data['openai_embedding_api_base'] = args.embedding_api_base
+        if hasattr(args, 'log_level') and args.log_level:
+            config_data['log_level'] = args.log_level
+        if hasattr(args, 'embedding_dim') and args.embedding_dim:
+            config_data['embedding_dim'] = args.embedding_dim
+
+        if not config_data:
+            print("❌ 没有提供要更新的配置项")
+            return
+
+        async with httpx.AsyncClient() as http_client:
+            response = await http_client.post(
+                f"{args.url}/service/config/update",
+                json=config_data
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("success"):
+                    result = data["data"]
+
+                    print("✅ 配置更新成功:")
+                    print(f"  更新字段: {', '.join(result['updated_fields'])}")
+                    print(f"  需要重启: {'是' if result['restart_required'] else '否'}")
+
+                    if result['restart_required']:
+                        print("\n⚠️ 某些配置更改需要重启服务才能完全生效")
+
+                else:
+                    print(f"❌ 配置更新失败: {data.get('message', '未知错误')}")
+            else:
+                print(f"❌ 请求失败: HTTP {response.status_code}")
+
+    except Exception as e:
+        print(f"❌ 更新配置失败: {e}")
 
 
 def main():
@@ -157,6 +275,8 @@ def main():
   %(prog)s lang list                        # 列出支持的语言
   %(prog)s lang set 英文                    # 设置默认语言
   %(prog)s service config                   # 查看服务配置
+  %(prog)s service effective-config         # 查看有效配置（包含默认值）
+  %(prog)s service update-config --llm-model gpt-4 --log-level DEBUG  # 更新配置
   %(prog)s service switch my_kb --language 中文  # 切换服务配置
   %(prog)s metrics                          # 性能指标
   %(prog)s graph-stats                      # 图谱统计
@@ -228,6 +348,18 @@ def main():
     service_subparsers = service_parser.add_subparsers(dest="service_command", help="服务操作")
 
     service_subparsers.add_parser("config", help="查看服务配置")
+    service_subparsers.add_parser("effective-config", help="查看有效配置（包含用户自定义和默认值）")
+
+    # 配置更新子命令
+    service_update_parser = service_subparsers.add_parser("update-config", help="更新服务配置")
+    service_update_parser.add_argument("--llm-model", help="LLM模型名称")
+    service_update_parser.add_argument("--embedding-model", help="Embedding模型名称")
+    service_update_parser.add_argument("--llm-api-key", help="LLM API密钥")
+    service_update_parser.add_argument("--embedding-api-key", help="Embedding API密钥")
+    service_update_parser.add_argument("--llm-api-base", help="LLM API基础URL")
+    service_update_parser.add_argument("--embedding-api-base", help="Embedding API基础URL")
+    service_update_parser.add_argument("--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], help="日志级别")
+    service_update_parser.add_argument("--embedding-dim", type=int, help="Embedding维度")
 
     service_switch_parser = service_subparsers.add_parser("switch", help="切换服务配置")
     service_switch_parser.add_argument("knowledge_base", help="知识库名称")
@@ -273,6 +405,10 @@ def main():
                 lang_parser.print_help()
         elif args.command == "service":
             if args.service_command == "config":
+                asyncio.run(cmd_service(args))
+            elif args.service_command == "effective-config":
+                asyncio.run(cmd_service(args))
+            elif args.service_command == "update-config":
                 asyncio.run(cmd_service(args))
             elif args.service_command == "switch":
                 asyncio.run(cmd_service(args))

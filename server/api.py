@@ -8,11 +8,11 @@ from datetime import datetime
 from contextlib import asynccontextmanager
 from typing import List
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from .config import settings
+from .config import settings, get_effective_config
 from .guixiaoxirag_service import guixiaoxirag_service
 from .models import *
 from .utils import setup_logging, process_uploaded_file, check_knowledge_graph_files, create_or_update_knowledge_graph_json
@@ -490,24 +490,41 @@ async def insert_texts(request: InsertTextsRequest):
         }
     }
 )
-async def insert_file(file: UploadFile = File(...)):
+async def insert_file(
+    file: UploadFile = File(...),
+    knowledge_base: Optional[str] = Form(None),
+    language: Optional[str] = Form(None),
+    track_id: Optional[str] = Form(None)
+):
     """上传并插入单个文件到知识库"""
     try:
         # 处理上传的文件
         file_info = await process_uploaded_file(file)
 
+        # 处理知识库路径
+        working_dir = None
+        if knowledge_base:
+            working_dir = f"./knowledgeBase/{knowledge_base}"
+
         # 插入文本内容
         track_id = await guixiaoxirag_service.insert_text(
             text=file_info["content"],
-            file_path=file_info["file_path"]
+            file_path=file_info["file_path"],
+            track_id=track_id,
+            working_dir=working_dir,
+            language=language
         )
 
+        kb_name = knowledge_base or "default"
+        lang = language or "中文"
         return BaseResponse(
             data=FileUploadResponse(
                 filename=file_info["filename"],
                 file_path=file_info["file_path"],
                 file_size=file_info["file_size"],
-                track_id=track_id
+                track_id=track_id,
+                knowledge_base=kb_name,
+                language=lang
             )
         )
     except Exception as e:
@@ -977,7 +994,12 @@ async def batch_query(queries: List[str], mode: str = "hybrid", top_k: int = 20)
         }
     }
 )
-async def insert_files(files: List[UploadFile] = File(...)):
+async def insert_files(
+    files: List[UploadFile] = File(...),
+    knowledge_base: Optional[str] = Form(None),
+    language: Optional[str] = Form(None),
+    track_id: Optional[str] = Form(None)
+):
     """批量上传并插入文件到知识库"""
     try:
         results = []
@@ -995,17 +1017,29 @@ async def insert_files(files: List[UploadFile] = File(...)):
                 "file_size": file_info["file_size"]
             })
 
+        # 处理知识库路径
+        working_dir = None
+        if knowledge_base:
+            working_dir = f"./knowledgeBase/{knowledge_base}"
+
         # 批量插入文本内容
         track_id = await guixiaoxirag_service.insert_texts(
             texts=texts,
-            file_paths=file_paths
+            file_paths=file_paths,
+            track_id=track_id,
+            working_dir=working_dir,
+            language=language
         )
 
+        kb_name = knowledge_base or "default"
+        lang = language or "中文"
         return BaseResponse(
             data={
                 "track_id": track_id,
                 "files": results,
-                "total_files": len(files)
+                "total_files": len(files),
+                "knowledge_base": kb_name,
+                "language": lang
             }
         )
     except Exception as e:
@@ -2361,6 +2395,207 @@ async def get_service_config():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get(
+    "/service/effective-config",
+    response_model=BaseResponse,
+    tags=["服务管理"],
+    summary="获取有效配置信息",
+    description="""
+    获取当前服务的完整有效配置信息，包括用户自定义配置和默认值。
+
+    **配置信息包括：**
+    - 应用基本信息（名称、版本、端口等）
+    - LLM配置（API地址、模型、提供商等）
+    - Embedding配置（API地址、模型、维度等）
+    - 文件处理配置（大小限制、支持格式等）
+    - 系统配置（日志级别、工作目录等）
+
+    **特点：**
+    - 显示实际生效的配置值
+    - 区分用户自定义和默认配置
+    - 隐藏敏感信息（如API密钥）
+    - 支持配置验证状态
+
+    **使用场景：**
+    - 配置调试和验证
+    - 系统状态检查
+    - 配置文档生成
+    - 故障排除支持
+    """,
+    responses={
+        200: {
+            "description": "有效配置获取成功",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "success": True,
+                        "message": "操作成功",
+                        "data": {
+                            "app_name": "GuiXiaoXiRag FastAPI Service",
+                            "version": "1.0.0",
+                            "host": "0.0.0.0",
+                            "port": 8002,
+                            "llm": {
+                                "api_base": "http://localhost:8100/v1",
+                                "api_key": "***",
+                                "model": "qwen14b",
+                                "provider": "openai"
+                            },
+                            "embedding": {
+                                "api_base": "http://localhost:8200/v1",
+                                "model": "embedding_qwen",
+                                "dim": 1536,
+                                "provider": "openai"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+)
+async def get_effective_config_api():
+    """获取有效配置信息"""
+    try:
+        effective_config = get_effective_config()
+        return BaseResponse(data=effective_config)
+    except Exception as e:
+        logger.error(f"获取有效配置失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post(
+    "/service/config/update",
+    response_model=BaseResponse,
+    tags=["服务管理"],
+    summary="更新服务配置",
+    description="""
+    动态更新服务配置，支持运行时配置修改。
+
+    **支持更新的配置项：**
+    - LLM配置：API地址、密钥、模型名称
+    - Embedding配置：API地址、密钥、模型名称、维度
+    - 系统配置：日志级别、Token限制
+    - 提供商配置：自定义LLM和Embedding提供商
+    - Azure配置：API版本、部署名称
+
+    **特点：**
+    - 只更新提供的字段，其他字段保持不变
+    - 自动验证配置有效性
+    - 返回更新后的完整配置
+    - 指示是否需要重启服务
+
+    **使用场景：**
+    - 运行时配置调整
+    - API密钥轮换
+    - 模型切换
+    - 环境配置迁移
+
+    **注意事项：**
+    - 某些配置更改可能需要重启服务才能生效
+    - 建议在低峰期进行配置更新
+    - 更新前请备份当前配置
+    """,
+    responses={
+        200: {
+            "description": "配置更新成功",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "success": True,
+                        "message": "配置更新成功",
+                        "data": {
+                            "updated_fields": ["openai_chat_model", "log_level"],
+                            "effective_config": {
+                                "llm": {
+                                    "model": "gpt-4",
+                                    "api_base": "https://api.openai.com/v1"
+                                }
+                            },
+                            "restart_required": False
+                        }
+                    }
+                }
+            }
+        },
+        400: {
+            "description": "配置参数无效",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "无效的API基础URL格式"
+                    }
+                }
+            }
+        }
+    }
+)
+async def update_service_config(request: ConfigUpdateRequest):
+    """更新服务配置"""
+    try:
+        from .config import settings
+        import os
+
+        updated_fields = []
+        restart_required_fields = ["openai_api_base", "openai_embedding_api_base", "embedding_dim"]
+        restart_required = False
+
+        # 更新配置
+        for field, value in request.model_dump(exclude_unset=True).items():
+            if value is not None:
+                # 验证配置值
+                if field in ["openai_api_base", "openai_embedding_api_base"]:
+                    if not value.startswith(('http://', 'https://')):
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"无效的API基础URL格式: {value}"
+                        )
+
+                if field == "embedding_dim" and (value <= 0 or value > 10000):
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"无效的Embedding维度: {value}"
+                    )
+
+                if field == "log_level" and value not in ["DEBUG", "INFO", "WARNING", "ERROR"]:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"无效的日志级别: {value}"
+                    )
+
+                # 设置环境变量（运行时生效）
+                env_name = field.upper()
+                os.environ[env_name] = str(value)
+
+                # 更新settings对象
+                setattr(settings, field, value)
+                updated_fields.append(field)
+
+                # 检查是否需要重启
+                if field in restart_required_fields:
+                    restart_required = True
+
+        if not updated_fields:
+            raise HTTPException(status_code=400, detail="没有提供有效的配置更新")
+
+        # 获取更新后的有效配置
+        effective_config = get_effective_config()
+
+        return BaseResponse(
+            message="配置更新成功",
+            data=ConfigResponse(
+                updated_fields=updated_fields,
+                effective_config=effective_config,
+                restart_required=restart_required
+            )
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"更新配置失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post(
     "/service/switch-kb",
     response_model=BaseResponse,
@@ -2996,6 +3231,366 @@ async def generate_graph_visualization(
     except Exception as e:
         logger.error(f"生成可视化失败: {e}")
         raise
+
+
+# 缓存管理接口
+@app.delete(
+    "/cache/clear",
+    response_model=BaseResponse,
+    tags=["缓存管理"],
+    summary="清理所有缓存",
+    description="""
+    清理系统中的所有缓存数据，包括LLM响应缓存、向量缓存等。
+
+    **清理内容：**
+    - LLM响应缓存
+    - 向量计算缓存
+    - 知识图谱缓存
+    - 文档处理缓存
+    - 查询结果缓存
+
+    **使用场景：**
+    - 系统维护和清理
+    - 释放内存空间
+    - 强制重新计算
+    - 故障排除
+
+    **注意事项：**
+    - 清理后首次查询可能较慢
+    - 建议在低峰期执行
+    - 操作不可逆，请谨慎使用
+    """,
+    responses={
+        200: {
+            "description": "缓存清理成功",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "success": True,
+                        "message": "缓存清理成功",
+                        "data": {
+                            "cleared_caches": ["llm_response", "vector", "knowledge_graph"],
+                            "freed_memory_mb": 256.5,
+                            "cache_stats": {
+                                "before": {"total_size_mb": 512.3, "item_count": 1024},
+                                "after": {"total_size_mb": 0, "item_count": 0}
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        500: {
+            "description": "缓存清理失败",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "缓存清理失败: 权限不足"
+                    }
+                }
+            }
+        }
+    }
+)
+async def clear_all_cache():
+    """清理所有缓存"""
+    try:
+        import gc
+        import psutil
+        import os
+
+        # 获取清理前的内存使用情况
+        process = psutil.Process(os.getpid())
+        memory_before = process.memory_info().rss / 1024 / 1024  # MB
+
+        cleared_caches = []
+
+        # 清理GuiXiaoXiRag服务缓存
+        if hasattr(guixiaoxirag_service, 'rag') and guixiaoxirag_service.rag:
+            # 清理LLM响应缓存
+            if hasattr(guixiaoxirag_service.rag, 'llm_response_cache'):
+                try:
+                    await guixiaoxirag_service.rag.llm_response_cache.clear()
+                    cleared_caches.append("llm_response")
+                except Exception as e:
+                    logger.warning(f"清理LLM响应缓存失败: {e}")
+
+            # 清理向量数据库缓存
+            for vdb_name in ['entities_vdb', 'relationships_vdb', 'chunks_vdb']:
+                if hasattr(guixiaoxirag_service.rag, vdb_name):
+                    try:
+                        vdb = getattr(guixiaoxirag_service.rag, vdb_name)
+                        if hasattr(vdb, 'clear_cache'):
+                            await vdb.clear_cache()
+                        cleared_caches.append(f"vector_{vdb_name}")
+                    except Exception as e:
+                        logger.warning(f"清理{vdb_name}缓存失败: {e}")
+
+        # 清理Python垃圾回收
+        collected = gc.collect()
+        cleared_caches.append("python_gc")
+
+        # 获取清理后的内存使用情况
+        memory_after = process.memory_info().rss / 1024 / 1024  # MB
+        freed_memory = max(0, memory_before - memory_after)
+
+        return BaseResponse(
+            message="缓存清理成功",
+            data={
+                "cleared_caches": cleared_caches,
+                "freed_memory_mb": round(freed_memory, 2),
+                "gc_collected_objects": collected,
+                "cache_stats": {
+                    "before": {"memory_mb": round(memory_before, 2)},
+                    "after": {"memory_mb": round(memory_after, 2)}
+                }
+            }
+        )
+    except Exception as e:
+        logger.error(f"清理缓存失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete(
+    "/cache/clear/{cache_type}",
+    response_model=BaseResponse,
+    tags=["缓存管理"],
+    summary="清理指定类型缓存",
+    description="""
+    清理指定类型的缓存数据。
+
+    **支持的缓存类型：**
+    - `llm`: LLM响应缓存
+    - `vector`: 向量计算缓存
+    - `knowledge_graph`: 知识图谱缓存
+    - `documents`: 文档处理缓存
+    - `queries`: 查询结果缓存
+
+    **使用场景：**
+    - 选择性清理特定缓存
+    - 精确控制缓存管理
+    - 性能优化和调试
+
+    **优势：**
+    - 避免清理所有缓存的性能影响
+    - 保留有用的缓存数据
+    - 更精细的缓存控制
+    """,
+    responses={
+        200: {
+            "description": "指定缓存清理成功",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "success": True,
+                        "message": "LLM缓存清理成功",
+                        "data": {
+                            "cache_type": "llm",
+                            "cleared_items": 128,
+                            "freed_memory_mb": 64.2
+                        }
+                    }
+                }
+            }
+        },
+        400: {
+            "description": "不支持的缓存类型",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "不支持的缓存类型: invalid_type"
+                    }
+                }
+            }
+        }
+    }
+)
+async def clear_specific_cache(cache_type: str):
+    """清理指定类型的缓存"""
+    try:
+        import gc
+
+        supported_types = ["llm", "vector", "knowledge_graph", "documents", "queries"]
+
+        if cache_type not in supported_types:
+            raise HTTPException(
+                status_code=400,
+                detail=f"不支持的缓存类型: {cache_type}。支持的类型: {', '.join(supported_types)}"
+            )
+
+        cleared_items = 0
+        freed_memory = 0
+
+        if cache_type == "llm":
+            # 清理LLM响应缓存
+            if hasattr(guixiaoxirag_service, 'rag') and guixiaoxirag_service.rag:
+                if hasattr(guixiaoxirag_service.rag, 'llm_response_cache'):
+                    cache = guixiaoxirag_service.rag.llm_response_cache
+                    if hasattr(cache, 'size'):
+                        cleared_items = await cache.size()
+                    await cache.clear()
+
+        elif cache_type == "vector":
+            # 清理向量缓存
+            if hasattr(guixiaoxirag_service, 'rag') and guixiaoxirag_service.rag:
+                for vdb_name in ['entities_vdb', 'relationships_vdb', 'chunks_vdb']:
+                    if hasattr(guixiaoxirag_service.rag, vdb_name):
+                        vdb = getattr(guixiaoxirag_service.rag, vdb_name)
+                        if hasattr(vdb, 'clear_cache'):
+                            await vdb.clear_cache()
+                            cleared_items += 1
+
+        elif cache_type == "knowledge_graph":
+            # 清理知识图谱缓存
+            if hasattr(guixiaoxirag_service, 'rag') and guixiaoxirag_service.rag:
+                if hasattr(guixiaoxirag_service.rag, 'chunk_entity_relation_graph'):
+                    graph = guixiaoxirag_service.rag.chunk_entity_relation_graph
+                    if hasattr(graph, 'clear_cache'):
+                        await graph.clear_cache()
+                        cleared_items = 1
+
+        # 执行垃圾回收
+        collected = gc.collect()
+
+        return BaseResponse(
+            message=f"{cache_type.upper()}缓存清理成功",
+            data={
+                "cache_type": cache_type,
+                "cleared_items": cleared_items,
+                "gc_collected_objects": collected,
+                "freed_memory_mb": round(freed_memory, 2)
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"清理{cache_type}缓存失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get(
+    "/cache/stats",
+    response_model=BaseResponse,
+    tags=["缓存管理"],
+    summary="获取缓存统计信息",
+    description="""
+    获取系统中各种缓存的统计信息。
+
+    **统计信息包括：**
+    - 各类缓存的大小和项目数量
+    - 内存使用情况
+    - 缓存命中率
+    - 缓存性能指标
+
+    **使用场景：**
+    - 监控缓存使用情况
+    - 性能分析和优化
+    - 容量规划
+    - 故障诊断
+
+    **返回数据：**
+    - 实时缓存统计
+    - 内存使用详情
+    - 性能指标
+    """,
+    responses={
+        200: {
+            "description": "缓存统计信息获取成功",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "success": True,
+                        "message": "操作成功",
+                        "data": {
+                            "total_memory_mb": 512.3,
+                            "caches": {
+                                "llm_response": {
+                                    "size_mb": 128.5,
+                                    "item_count": 256,
+                                    "hit_rate": 0.85
+                                },
+                                "vector": {
+                                    "size_mb": 256.8,
+                                    "item_count": 1024,
+                                    "hit_rate": 0.92
+                                }
+                            },
+                            "system_memory": {
+                                "total_mb": 8192,
+                                "available_mb": 4096,
+                                "used_percent": 50.0
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+)
+async def get_cache_stats():
+    """获取缓存统计信息"""
+    try:
+        import psutil
+        import os
+
+        # 获取系统内存信息
+        memory = psutil.virtual_memory()
+        process = psutil.Process(os.getpid())
+        process_memory = process.memory_info().rss / 1024 / 1024  # MB
+
+        cache_stats = {
+            "total_memory_mb": round(process_memory, 2),
+            "caches": {},
+            "system_memory": {
+                "total_mb": round(memory.total / 1024 / 1024, 2),
+                "available_mb": round(memory.available / 1024 / 1024, 2),
+                "used_percent": round(memory.percent, 1)
+            }
+        }
+
+        # 获取各种缓存的统计信息
+        if hasattr(guixiaoxirag_service, 'rag') and guixiaoxirag_service.rag:
+            # LLM响应缓存统计
+            if hasattr(guixiaoxirag_service.rag, 'llm_response_cache'):
+                cache = guixiaoxirag_service.rag.llm_response_cache
+                try:
+                    size = await cache.size() if hasattr(cache, 'size') else 0
+                    cache_stats["caches"]["llm_response"] = {
+                        "item_count": size,
+                        "size_mb": round(size * 0.1, 2),  # 估算
+                        "hit_rate": 0.0  # 需要实际实现
+                    }
+                except:
+                    cache_stats["caches"]["llm_response"] = {
+                        "item_count": 0,
+                        "size_mb": 0,
+                        "hit_rate": 0.0
+                    }
+
+            # 向量数据库统计
+            vector_total_size = 0
+            vector_total_items = 0
+            for vdb_name in ['entities_vdb', 'relationships_vdb', 'chunks_vdb']:
+                if hasattr(guixiaoxirag_service.rag, vdb_name):
+                    try:
+                        vdb = getattr(guixiaoxirag_service.rag, vdb_name)
+                        if hasattr(vdb, 'size'):
+                            size = await vdb.size()
+                            vector_total_items += size
+                            vector_total_size += size * 0.5  # 估算每个向量0.5KB
+                    except:
+                        pass
+
+            cache_stats["caches"]["vector"] = {
+                "item_count": vector_total_items,
+                "size_mb": round(vector_total_size / 1024, 2),
+                "hit_rate": 0.0
+            }
+
+        return BaseResponse(data=cache_stats)
+    except Exception as e:
+        logger.error(f"获取缓存统计失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":

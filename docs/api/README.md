@@ -85,11 +85,18 @@ curl -X POST "http://localhost:8002/query" \
 
 ### ⚙️ 服务管理
 - 服务配置：`GET /service/config`
+- 有效配置：`GET /service/effective-config`
+- 更新配置：`POST /service/config/update`
 - 切换知识库：`POST /service/switch-kb`
 
 ### 🚀 性能优化
 - 性能配置：`GET /performance/configs`
 - 应用优化：`POST /performance/optimize`
+
+### 🗑️ 缓存管理
+- 缓存统计：`GET /cache/stats`
+- 清理所有缓存：`DELETE /cache/clear`
+- 清理指定缓存：`DELETE /cache/clear/{cache_type}`
 
 ### 📊 监控运维
 - 性能指标：`GET /metrics`

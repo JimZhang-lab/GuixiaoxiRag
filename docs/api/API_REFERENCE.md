@@ -149,22 +149,39 @@ curl -X POST "http://localhost:8002/insert/texts" \
 
 ### 上传文件
 - **接口**: `POST /insert/file`
-- **描述**: 上传并处理单个文件
+- **描述**: 上传并处理单个文件到指定知识库
 
 ```bash
 curl -X POST "http://localhost:8002/insert/file" \
-  -F "file=@document.pdf"
+  -F "file=@document.pdf" \
+  -F "knowledge_base=my_kb" \
+  -F "language=中文" \
+  -F "track_id=upload_001"
 ```
+
+**表单参数**：
+- `file`: 必填，要上传的文件
+- `knowledge_base`: 可选，目标知识库名称
+- `language`: 可选，处理语言
+- `track_id`: 可选，跟踪ID
 
 ### 批量文件上传
 - **接口**: `POST /insert/files`
-- **描述**: 批量上传多个文件
+- **描述**: 批量上传多个文件到指定知识库
 
 ```bash
 curl -X POST "http://localhost:8002/insert/files" \
   -F "files=@doc1.pdf" \
-  -F "files=@doc2.docx"
+  -F "files=@doc2.docx" \
+  -F "knowledge_base=my_kb" \
+  -F "language=中文"
 ```
+
+**表单参数**：
+- `files`: 必填，要上传的文件列表
+- `knowledge_base`: 可选，目标知识库名称
+- `language`: 可选，处理语言
+- `track_id`: 可选，跟踪ID
 
 ### 目录文件处理
 - **接口**: `POST /insert/directory`
@@ -431,6 +448,87 @@ curl "http://localhost:8002/logs?lines=100&level=ERROR"
 curl http://localhost:8002/service/config
 ```
 
+### 有效配置
+- **接口**: `GET /service/effective-config`
+- **描述**: 获取完整的有效配置信息（包含用户自定义和默认值）
+
+```bash
+curl http://localhost:8002/service/effective-config
+```
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "data": {
+    "app_name": "GuiXiaoXiRag FastAPI Service",
+    "version": "1.0.0",
+    "host": "0.0.0.0",
+    "port": 8002,
+    "llm": {
+      "api_base": "http://localhost:8100/v1",
+      "api_key": "***",
+      "model": "qwen14b",
+      "provider": "openai"
+    },
+    "embedding": {
+      "api_base": "http://localhost:8200/v1",
+      "api_key": "***",
+      "model": "embedding_qwen",
+      "dim": 1536,
+      "provider": "openai"
+    }
+  }
+}
+```
+
+### 更新服务配置
+- **接口**: `POST /service/config/update`
+- **描述**: 动态更新服务配置，支持运行时配置修改
+
+```bash
+curl -X POST "http://localhost:8002/service/config/update" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "openai_chat_model": "gpt-4",
+    "log_level": "DEBUG",
+    "embedding_dim": 1536
+  }'
+```
+
+**请求参数**：
+- `openai_api_base`: LLM API基础URL
+- `openai_embedding_api_base`: Embedding API基础URL
+- `openai_chat_api_key`: LLM API密钥
+- `openai_embedding_api_key`: Embedding API密钥
+- `openai_chat_model`: LLM模型名称
+- `openai_embedding_model`: Embedding模型名称
+- `embedding_dim`: Embedding维度
+- `max_token_size`: 最大Token数
+- `log_level`: 日志级别
+- `custom_llm_provider`: 自定义LLM提供商
+- `custom_embedding_provider`: 自定义Embedding提供商
+- `azure_api_version`: Azure API版本
+- `azure_deployment_name`: Azure部署名称
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "message": "配置更新成功",
+  "data": {
+    "updated_fields": ["openai_chat_model", "log_level"],
+    "effective_config": {
+      "llm": {
+        "model": "gpt-4",
+        "api_base": "https://api.openai.com/v1"
+      }
+    },
+    "restart_required": false
+  }
+}
+```
+
 ### 切换服务知识库
 - **接口**: `POST /service/switch-kb`
 - **描述**: 切换服务使用的知识库
@@ -532,6 +630,104 @@ response = requests.post(
     "http://localhost:8002/insert/files",
     files=files
 )
+```
+
+## 缓存管理接口
+
+### 获取缓存统计
+- **接口**: `GET /cache/stats`
+- **描述**: 获取系统中各种缓存的统计信息
+
+```bash
+curl http://localhost:8002/cache/stats
+```
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "data": {
+    "total_memory_mb": 512.3,
+    "caches": {
+      "llm_response": {
+        "size_mb": 128.5,
+        "item_count": 256,
+        "hit_rate": 0.85
+      },
+      "vector": {
+        "size_mb": 256.8,
+        "item_count": 1024,
+        "hit_rate": 0.92
+      }
+    },
+    "system_memory": {
+      "total_mb": 8192,
+      "available_mb": 4096,
+      "used_percent": 50.0
+    }
+  }
+}
+```
+
+### 清理所有缓存
+- **接口**: `DELETE /cache/clear`
+- **描述**: 清理系统中的所有缓存数据
+
+```bash
+curl -X DELETE http://localhost:8002/cache/clear
+```
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "message": "缓存清理成功",
+  "data": {
+    "cleared_caches": ["llm_response", "vector", "knowledge_graph"],
+    "freed_memory_mb": 256.5,
+    "gc_collected_objects": 128,
+    "cache_stats": {
+      "before": {"memory_mb": 512.3},
+      "after": {"memory_mb": 255.8}
+    }
+  }
+}
+```
+
+### 清理指定类型缓存
+- **接口**: `DELETE /cache/clear/{cache_type}`
+- **描述**: 清理指定类型的缓存数据
+
+**支持的缓存类型**：
+- `llm`: LLM响应缓存
+- `vector`: 向量计算缓存
+- `knowledge_graph`: 知识图谱缓存
+- `documents`: 文档处理缓存
+- `queries`: 查询结果缓存
+
+```bash
+# 清理LLM缓存
+curl -X DELETE http://localhost:8002/cache/clear/llm
+
+# 清理向量缓存
+curl -X DELETE http://localhost:8002/cache/clear/vector
+
+# 清理知识图谱缓存
+curl -X DELETE http://localhost:8002/cache/clear/knowledge_graph
+```
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "message": "LLM缓存清理成功",
+  "data": {
+    "cache_type": "llm",
+    "cleared_items": 128,
+    "gc_collected_objects": 64,
+    "freed_memory_mb": 64.2
+  }
+}
 ```
 
 ## 🔗 相关文档

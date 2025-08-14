@@ -126,6 +126,8 @@ class FileUploadResponse(BaseModel):
     file_path: str = Field(..., description="文件路径")
     file_size: int = Field(..., description="文件大小")
     track_id: str = Field(..., description="处理跟踪ID")
+    knowledge_base: Optional[str] = Field(None, description="目标知识库")
+    language: Optional[str] = Field(None, description="处理语言")
 
 
 # 系统状态相关模型
@@ -231,6 +233,39 @@ class DirectoryInsertRequest(BaseModel):
     directory_path: str = Field(..., description="目录路径")
     knowledge_base: Optional[str] = Field(None, description="知识库名称")
     language: Optional[SupportedLanguage] = Field(None, description="处理语言")
+
+
+# 配置管理相关模型
+class ConfigUpdateRequest(BaseModel):
+    """配置更新请求"""
+    openai_api_base: Optional[str] = Field(None, description="LLM API基础URL")
+    openai_embedding_api_base: Optional[str] = Field(None, description="Embedding API基础URL")
+    openai_chat_api_key: Optional[str] = Field(None, description="LLM API密钥")
+    openai_embedding_api_key: Optional[str] = Field(None, description="Embedding API密钥")
+    openai_chat_model: Optional[str] = Field(None, description="LLM模型名称")
+    openai_embedding_model: Optional[str] = Field(None, description="Embedding模型名称")
+    embedding_dim: Optional[int] = Field(None, description="Embedding维度")
+    max_token_size: Optional[int] = Field(None, description="最大Token数")
+    log_level: Optional[str] = Field(None, description="日志级别")
+    custom_llm_provider: Optional[str] = Field(None, description="自定义LLM提供商")
+    custom_embedding_provider: Optional[str] = Field(None, description="自定义Embedding提供商")
+    azure_api_version: Optional[str] = Field(None, description="Azure API版本")
+    azure_deployment_name: Optional[str] = Field(None, description="Azure部署名称")
+
+
+class ConfigResponse(BaseModel):
+    """配置响应"""
+    updated_fields: List[str] = Field(..., description="已更新的配置字段")
+    effective_config: Dict[str, Any] = Field(..., description="当前有效配置")
+    restart_required: bool = Field(default=False, description="是否需要重启服务")
+
+
+# 文件上传相关模型
+class FileUploadRequest(BaseModel):
+    """文件上传请求"""
+    knowledge_base: Optional[str] = Field(None, description="目标知识库名称")
+    language: Optional[SupportedLanguage] = Field(None, description="处理语言")
+    track_id: Optional[str] = Field(None, description="跟踪ID")
 
 
 # 知识图谱可视化相关模型

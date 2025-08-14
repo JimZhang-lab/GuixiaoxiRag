@@ -9,6 +9,7 @@ docs/
 ├── 📁 getting-started/     # 🚀 快速上手
 │   ├── QUICK_START.md      # 5分钟快速开始
 │   ├── CONFIGURATION_GUIDE.md # 详细配置指南
+│   ├── CONFIGURATION_EXAMPLES.md # 配置示例
 │   ├── DEPLOYMENT_GUIDE.md # 生产环境部署
 │   └── TROUBLESHOOTING.md  # 故障排除指南
 │

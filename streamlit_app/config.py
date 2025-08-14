@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     openai_api_base: str = "http://localhost:8100/v1"
     openai_embedding_api_base: str = "http://localhost:8200/v1"
     openai_chat_api_key: str = "your_api_key_here"
+    openai_embedding_api_key: str = "your_api_key_here"
     openai_chat_model: str = "qwen14b"
     openai_embedding_model: str = "embedding_qwen"
 

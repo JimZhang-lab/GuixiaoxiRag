@@ -18,6 +18,8 @@ from .components import (
     render_knowledge_base_management,
     render_language_settings,
     render_monitoring_dashboard,
+    render_cache_management,
+    render_enhanced_service_config,
     render_service_config,
     render_knowledge_graph_visualization
 )
@@ -55,7 +57,9 @@ def run_main_interface():
     elif page == "语言设置":
         render_language_settings_page()
     elif page == "服务配置":
-        render_service_config_page()
+        render_enhanced_service_config()
+    elif page == "缓存管理":
+        render_cache_management()
     elif page == "监控面板":
         render_monitoring_dashboard_page()
     else:

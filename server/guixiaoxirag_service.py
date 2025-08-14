@@ -138,7 +138,7 @@ class GuiXiaoXiRagService:
         return await openai_embed(
             texts,
             model=settings.openai_embedding_model,
-            api_key=settings.openai_chat_api_key,  # 使用相同的API key
+            api_key=settings.openai_embedding_api_key,  # 使用专用的Embedding API key
             base_url=settings.openai_embedding_api_base
         )
     

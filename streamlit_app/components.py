@@ -23,6 +23,7 @@ def render_sidebar():
         "知识库管理",
         "语言设置",
         "服务配置",
+        "缓存管理",
         "监控面板"
     ]
     
@@ -241,11 +242,19 @@ def render_document_management(api_client):
             if st.button("上传文件"):
                 with st.spinner("上传中..."):
                     file_content = uploaded_file.read()
-                    track_id = api_client.upload_file(file_content, uploaded_file.name)
-                    if track_id:
-                        st.success(f"✅ 文件上传成功！跟踪ID: {track_id}")
-                        st.info(f"文件名: {uploaded_file.name}")
-                        st.info(f"文件大小: {len(file_content)} 字节")
+                    result = api_client.upload_file_with_kb(
+                        file_content=file_content,
+                        filename=uploaded_file.name,
+                        knowledge_base=knowledge_base if knowledge_base != "默认" else None,
+                        language=language
+                    )
+                    if result:
+                        st.success(f"✅ 文件上传成功！")
+                        st.info(f"文件名: {result.get('filename', uploaded_file.name)}")
+                        st.info(f"文件大小: {result.get('file_size', len(file_content))} 字节")
+                        st.info(f"知识库: {result.get('knowledge_base', '默认')}")
+                        st.info(f"语言: {result.get('language', '中文')}")
+                        st.info(f"跟踪ID: {result.get('track_id', 'N/A')}")
                     else:
                         st.error("❌ 文件上传失败")
     
@@ -1505,3 +1514,318 @@ def render_knowledge_graph_visualization(api_client):
             st.info("📂 该知识库中暂无图谱文件")
     else:
         st.error("❌ 无法获取文件列表")
+
+
+def render_cache_management():
+    """渲染缓存管理界面"""
+    st.header("🗑️ 缓存管理")
+    st.markdown("管理系统缓存，优化性能和内存使用")
+
+    api_client = st.session_state.get('api_client')
+    if not api_client:
+        st.error("❌ API客户端未初始化")
+        return
+
+    # 创建标签页
+    tab1, tab2, tab3 = st.tabs(["📊 缓存统计", "🗑️ 缓存清理", "⚙️ 缓存设置"])
+
+    with tab1:
+        st.subheader("📊 缓存统计信息")
+
+        # 刷新按钮
+        if st.button("🔄 刷新统计", key="refresh_cache_stats"):
+            st.rerun()
+
+        # 获取缓存统计
+        cache_stats = api_client.get_cache_stats()
+
+        if cache_stats:
+            # 系统内存信息
+            st.subheader("💾 系统内存")
+            system_memory = cache_stats.get("system_memory", {})
+
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric(
+                    "总内存",
+                    f"{system_memory.get('total_mb', 0):.1f} MB"
+                )
+            with col2:
+                st.metric(
+                    "可用内存",
+                    f"{system_memory.get('available_mb', 0):.1f} MB"
+                )
+            with col3:
+                st.metric(
+                    "使用率",
+                    f"{system_memory.get('used_percent', 0):.1f}%"
+                )
+
+            # 进程内存信息
+            st.subheader("🔧 进程内存")
+            st.metric("当前进程内存", f"{cache_stats.get('total_memory_mb', 0):.2f} MB")
+
+            # 各类缓存统计
+            st.subheader("📦 缓存详情")
+            caches = cache_stats.get("caches", {})
+
+            if caches:
+                for cache_name, cache_info in caches.items():
+                    with st.expander(f"📁 {cache_name.upper()} 缓存"):
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("项目数量", cache_info.get("item_count", 0))
+                        with col2:
+                            st.metric("大小", f"{cache_info.get('size_mb', 0):.2f} MB")
+                        with col3:
+                            st.metric("命中率", f"{cache_info.get('hit_rate', 0):.1%}")
+            else:
+                st.info("📝 暂无缓存数据")
+        else:
+            st.error("❌ 无法获取缓存统计信息")
+
+    with tab2:
+        st.subheader("🗑️ 缓存清理")
+
+        # 清理所有缓存
+        st.markdown("### 🚨 清理所有缓存")
+        st.warning("⚠️ 此操作将清理所有缓存数据，可能影响系统性能")
+
+        if st.button("🗑️ 清理所有缓存", type="primary", key="clear_all_cache"):
+            with st.spinner("正在清理所有缓存..."):
+                result = api_client.clear_all_cache()
+
+                if result:
+                    st.success("✅ 所有缓存清理成功！")
+
+                    # 显示清理结果
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.metric("释放内存", f"{result.get('freed_memory_mb', 0):.2f} MB")
+                    with col2:
+                        st.metric("垃圾回收对象", result.get('gc_collected_objects', 0))
+
+                    # 显示清理的缓存类型
+                    cleared_caches = result.get('cleared_caches', [])
+                    if cleared_caches:
+                        st.write("**清理的缓存类型：**")
+                        for cache in cleared_caches:
+                            st.write(f"- {cache}")
+                else:
+                    st.error("❌ 清理缓存失败")
+
+        st.markdown("---")
+
+        # 清理指定类型缓存
+        st.markdown("### 🎯 清理指定缓存")
+
+        cache_types = {
+            "llm": "🧠 LLM响应缓存",
+            "vector": "📊 向量计算缓存",
+            "knowledge_graph": "🕸️ 知识图谱缓存",
+            "documents": "📄 文档处理缓存",
+            "queries": "🔍 查询结果缓存"
+        }
+
+        selected_cache_type = st.selectbox(
+            "选择要清理的缓存类型",
+            options=list(cache_types.keys()),
+            format_func=lambda x: cache_types[x],
+            key="cache_type_selector"
+        )
+
+        if st.button(f"🗑️ 清理 {cache_types[selected_cache_type]}", key="clear_specific_cache"):
+            with st.spinner(f"正在清理 {cache_types[selected_cache_type]}..."):
+                result = api_client.clear_specific_cache(selected_cache_type)
+
+                if result:
+                    st.success(f"✅ {cache_types[selected_cache_type]} 清理成功！")
+
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.metric("清理项目数", result.get('cleared_items', 0))
+                    with col2:
+                        st.metric("释放内存", f"{result.get('freed_memory_mb', 0):.2f} MB")
+                else:
+                    st.error(f"❌ 清理 {cache_types[selected_cache_type]} 失败")
+
+    with tab3:
+        st.subheader("⚙️ 缓存设置")
+        st.info("🚧 缓存设置功能正在开发中...")
+
+        # 未来可以添加缓存配置选项
+        st.markdown("""
+        **计划中的功能：**
+        - 缓存大小限制设置
+        - 缓存过期时间配置
+        - 自动清理策略
+        - 缓存性能监控
+        """)
+
+
+def render_enhanced_service_config():
+    """渲染增强的服务配置界面"""
+    st.header("⚙️ 服务配置管理")
+    st.markdown("动态管理服务配置，支持运行时更新")
+
+    api_client = st.session_state.get('api_client')
+    if not api_client:
+        st.error("❌ API客户端未初始化")
+        return
+
+    # 创建标签页
+    tab1, tab2, tab3 = st.tabs(["📋 当前配置", "✏️ 配置更新", "📊 配置历史"])
+
+    with tab1:
+        st.subheader("📋 当前有效配置")
+
+        # 刷新按钮
+        if st.button("🔄 刷新配置", key="refresh_config"):
+            st.rerun()
+
+        # 获取有效配置
+        config = api_client.get_effective_config()
+
+        if config:
+            # 应用基本信息
+            st.subheader("📱 应用信息")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("应用名称", config.get('app_name', 'N/A'))
+            with col2:
+                st.metric("版本", config.get('version', 'N/A'))
+            with col3:
+                st.metric("端口", config.get('port', 'N/A'))
+
+            # LLM配置
+            st.subheader("🧠 LLM配置")
+            llm_config = config.get('llm', {})
+            col1, col2 = st.columns(2)
+            with col1:
+                st.text_input("API地址", value=llm_config.get('api_base', ''), disabled=True)
+                st.text_input("模型", value=llm_config.get('model', ''), disabled=True)
+            with col2:
+                st.text_input("API密钥", value=llm_config.get('api_key', ''), disabled=True, type="password")
+                st.text_input("提供商", value=llm_config.get('provider', ''), disabled=True)
+
+            # Embedding配置
+            st.subheader("📊 Embedding配置")
+            embedding_config = config.get('embedding', {})
+            col1, col2 = st.columns(2)
+            with col1:
+                st.text_input("API地址", value=embedding_config.get('api_base', ''), disabled=True, key="emb_api_base")
+                st.text_input("模型", value=embedding_config.get('model', ''), disabled=True, key="emb_model")
+            with col2:
+                st.text_input("API密钥", value=embedding_config.get('api_key', ''), disabled=True, type="password", key="emb_api_key")
+                st.number_input("维度", value=embedding_config.get('dim', 0), disabled=True, key="emb_dim")
+
+            # 其他配置
+            st.subheader("🔧 其他配置")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.text_input("工作目录", value=config.get('working_dir', ''), disabled=True)
+                st.text_input("日志级别", value=config.get('log_level', ''), disabled=True)
+            with col2:
+                st.number_input("最大文件大小(MB)", value=config.get('max_file_size_mb', 0), disabled=True)
+                st.number_input("最大Token数", value=config.get('max_token_size', 0), disabled=True)
+        else:
+            st.error("❌ 无法获取配置信息")
+
+    with tab2:
+        st.subheader("✏️ 配置更新")
+        st.markdown("动态更新服务配置，部分配置可能需要重启服务")
+
+        # 配置更新表单
+        with st.form("config_update_form"):
+            st.markdown("#### 🧠 LLM配置")
+            col1, col2 = st.columns(2)
+            with col1:
+                llm_api_base = st.text_input("LLM API地址", placeholder="http://localhost:8100/v1")
+                llm_model = st.text_input("LLM模型", placeholder="qwen14b")
+            with col2:
+                llm_api_key = st.text_input("LLM API密钥", type="password", placeholder="your_api_key_here")
+                llm_provider = st.selectbox("LLM提供商", ["", "openai", "azure", "ollama", "anthropic"])
+
+            st.markdown("#### 📊 Embedding配置")
+            col1, col2 = st.columns(2)
+            with col1:
+                emb_api_base = st.text_input("Embedding API地址", placeholder="http://localhost:8200/v1")
+                emb_model = st.text_input("Embedding模型", placeholder="embedding_qwen")
+            with col2:
+                emb_api_key = st.text_input("Embedding API密钥", type="password", placeholder="your_api_key_here")
+                emb_dim = st.number_input("Embedding维度", min_value=0, max_value=10000, value=0)
+
+            st.markdown("#### 🔧 系统配置")
+            col1, col2 = st.columns(2)
+            with col1:
+                log_level = st.selectbox("日志级别", ["", "DEBUG", "INFO", "WARNING", "ERROR"])
+            with col2:
+                max_token_size = st.number_input("最大Token数", min_value=0, value=0)
+
+            # 提交按钮
+            submitted = st.form_submit_button("🚀 更新配置", type="primary")
+
+            if submitted:
+                # 构建更新数据
+                config_updates = {}
+
+                if llm_api_base:
+                    config_updates["openai_api_base"] = llm_api_base
+                if llm_api_key:
+                    config_updates["openai_chat_api_key"] = llm_api_key
+                if llm_model:
+                    config_updates["openai_chat_model"] = llm_model
+                if llm_provider:
+                    config_updates["custom_llm_provider"] = llm_provider
+
+                if emb_api_base:
+                    config_updates["openai_embedding_api_base"] = emb_api_base
+                if emb_api_key:
+                    config_updates["openai_embedding_api_key"] = emb_api_key
+                if emb_model:
+                    config_updates["openai_embedding_model"] = emb_model
+                if emb_dim > 0:
+                    config_updates["embedding_dim"] = emb_dim
+
+                if log_level:
+                    config_updates["log_level"] = log_level
+                if max_token_size > 0:
+                    config_updates["max_token_size"] = max_token_size
+
+                if config_updates:
+                    with st.spinner("正在更新配置..."):
+                        result = api_client.update_config(config_updates)
+
+                        if result:
+                            st.success("✅ 配置更新成功！")
+
+                            # 显示更新结果
+                            updated_fields = result.get('updated_fields', [])
+                            if updated_fields:
+                                st.write("**更新的字段：**")
+                                for field in updated_fields:
+                                    st.write(f"- {field}")
+
+                            # 重启提示
+                            if result.get('restart_required', False):
+                                st.warning("⚠️ 某些配置更改需要重启服务才能完全生效")
+
+                            # 自动刷新页面显示新配置
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.error("❌ 配置更新失败")
+                else:
+                    st.warning("⚠️ 请至少填写一个配置项")
+
+    with tab3:
+        st.subheader("📊 配置历史")
+        st.info("🚧 配置历史功能正在开发中...")
+
+        st.markdown("""
+        **计划中的功能：**
+        - 配置变更历史记录
+        - 配置版本管理
+        - 配置回滚功能
+        - 配置对比工具
+        """)

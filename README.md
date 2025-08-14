@@ -34,6 +34,18 @@
 - **动态切换**: 支持运行时切换不同知识库
 - **可视化管理**: 知识图谱可视化和交互式管理
 
+### ⚙️ 配置管理
+- **动态配置**: 支持运行时配置更新，无需重启服务
+- **智能验证**: 自动验证配置有效性和兼容性
+- **多提供商支持**: 支持OpenAI、Azure、Ollama等多种服务提供商
+- **API和CLI**: 通过API接口或命令行工具管理配置
+
+### 🗑️ 缓存管理
+- **智能缓存**: 多层缓存系统，提升查询性能
+- **缓存统计**: 实时监控缓存使用情况和性能指标
+- **灵活清理**: 支持全量清理和按类型清理缓存
+- **内存优化**: 自动垃圾回收和内存使用优化
+
 ### 🌍 多语言支持
 - **多语言处理**: 支持中文、英文等多种语言
 - **跨语言检索**: 支持跨语言知识检索和回答生成
@@ -130,12 +142,19 @@ cp .env.example .env
 vim .env
 ```
 
-**重要配置项**：
+**重要配置项**（支持用户自定义，未配置时使用默认值）：
 - `OPENAI_API_BASE`: LLM服务地址（默认：http://localhost:8100/v1）
 - `OPENAI_EMBEDDING_API_BASE`: Embedding服务地址（默认：http://localhost:8200/v1）
-- `OPENAI_CHAT_API_KEY`: API密钥
+- `OPENAI_CHAT_API_KEY`: LLM API密钥（默认：your_api_key_here）
+- `OPENAI_EMBEDDING_API_KEY`: Embedding API密钥（默认：your_api_key_here）
 - `OPENAI_CHAT_MODEL`: 聊天模型（默认：qwen14b）
 - `OPENAI_EMBEDDING_MODEL`: 嵌入模型（默认：embedding_qwen）
+
+**可选的高级配置**：
+- `CUSTOM_LLM_PROVIDER`: 自定义LLM提供商（openai, azure, ollama等）
+- `CUSTOM_EMBEDDING_PROVIDER`: 自定义Embedding提供商
+- `AZURE_API_VERSION`: Azure OpenAI API版本
+- `AZURE_DEPLOYMENT_NAME`: Azure部署名称
 
 ### 3. 启动服务
 
@@ -162,6 +181,12 @@ open http://localhost:8002/docs
 # 启动Web界面（可选）
 streamlit run start_streamlit.py --server.port 8501
 open http://localhost:8501
+
+# 验证配置（可选）
+python scripts/guixiaoxirag_cli.py service effective-config
+
+# 动态更新配置（可选）
+python scripts/guixiaoxirag_cli.py service update-config --llm-model gpt-4 --log-level DEBUG
 ```
 
 ## 📖 使用指南
@@ -229,6 +254,7 @@ WORKERS=1
 OPENAI_API_BASE=http://localhost:8100/v1
 OPENAI_EMBEDDING_API_BASE=http://localhost:8200/v1
 OPENAI_CHAT_API_KEY=your_api_key_here
+OPENAI_EMBEDDING_API_KEY=your_api_key_here
 OPENAI_CHAT_MODEL=qwen14b
 OPENAI_EMBEDDING_MODEL=embedding_qwen
 
@@ -262,7 +288,73 @@ python test/test_api.py
 python test/test_guixiaoxirag_service.py
 ```
 
-## 📊 监控
+## ⚙️ 配置管理
+
+```bash
+# 查看当前配置
+curl http://localhost:8002/service/effective-config
+
+# 动态更新配置
+curl -X POST "http://localhost:8002/service/config/update" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "openai_chat_model": "gpt-4",
+    "log_level": "DEBUG",
+    "embedding_dim": 1536
+  }'
+
+# 通过CLI更新配置
+python scripts/guixiaoxirag_cli.py service update-config \
+  --llm-model gpt-4 \
+  --log-level DEBUG \
+  --embedding-dim 1536
+```
+
+## 📚 文档管理
+
+```bash
+# 插入文本到指定知识库
+curl -X POST "http://localhost:8002/insert/text" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "这是一个测试文档",
+    "knowledge_base": "my_kb",
+    "language": "中文"
+  }'
+
+# 上传文件到指定知识库
+curl -X POST "http://localhost:8002/insert/file" \
+  -F "file=@document.pdf" \
+  -F "knowledge_base=my_kb" \
+  -F "language=中文"
+
+# 智能查询
+curl -X POST "http://localhost:8002/query" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "什么是人工智能？",
+    "mode": "hybrid",
+    "knowledge_base": "my_kb",
+    "language": "中文"
+  }'
+```
+
+## �️ 缓存管理
+
+```bash
+# 获取缓存统计信息
+curl http://localhost:8002/cache/stats
+
+# 清理所有缓存
+curl -X DELETE http://localhost:8002/cache/clear
+
+# 清理指定类型缓存
+curl -X DELETE http://localhost:8002/cache/clear/llm
+curl -X DELETE http://localhost:8002/cache/clear/vector
+curl -X DELETE http://localhost:8002/cache/clear/knowledge_graph
+```
+
+## �📊 监控
 
 ```bash
 # 系统状态
