@@ -13,9 +13,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .config import settings, get_effective_config
+from .query_processor import query_processor, QueryAnalysisResult, create_llm_func, set_llm_func_for_processor
 from .guixiaoxirag_service import guixiaoxirag_service
 from .models import *
-from .utils import setup_logging, process_uploaded_file, check_knowledge_graph_files, create_or_update_knowledge_graph_json
+from .utils import setup_logging, process_uploaded_file, check_knowledge_graph_files, create_or_update_knowledge_graph_json, validate_query_mode
 from .middleware import LoggingMiddleware, MetricsMiddleware, SecurityMiddleware, get_metrics
 from .performance_config import PerformanceConfig, get_optimized_query_params
 from .knowledge_base_manager import kb_manager
@@ -37,6 +38,26 @@ async def lifespan(app: FastAPI):
     try:
         await guixiaoxirag_service.initialize()
         logger.info("GuiXiaoXiRag服务初始化完成")
+
+        # 初始化查询处理器的LLM功能
+        try:
+            # 为查询处理器设置LLM函数
+            llm_func = await create_llm_func(guixiaoxirag_service)
+            set_llm_func_for_processor(llm_func)
+            logger.info("查询处理器LLM功能初始化完成")
+
+            # 测试LLM功能
+            test_response = await llm_func("测试")
+            if test_response:
+                logger.info("LLM功能测试成功")
+            else:
+                logger.warning("LLM功能测试失败，将使用规则回退")
+
+        except Exception as e:
+            logger.warning(f"查询处理器LLM功能初始化失败，将使用规则回退: {e}")
+            # 确保即使LLM初始化失败，查询处理器仍然可用
+            set_llm_func_for_processor(None)
+
     except Exception as e:
         logger.error(f"GuiXiaoXiRag服务初始化失败: {e}")
         raise
@@ -595,7 +616,7 @@ async def insert_file(
             "content": {
                 "application/json": {
                     "example": {
-                        "detail": "查询内容不能为空或模式不支持"
+                        "detail": "查询内容不能为空或查询模式无效（请调用 /query/modes 获取）"
                     }
                 }
             }
@@ -654,6 +675,10 @@ async def query(request: QueryRequest):
         if request.knowledge_base:
             working_dir = f"./knowledgeBase/{request.knowledge_base}"
 
+        # 校验查询模式
+        if request.mode and not validate_query_mode(request.mode):
+            raise HTTPException(status_code=400, detail=f"无效的查询模式: {request.mode}")
+
         result = await guixiaoxirag_service.query(
             query=request.query,
             mode=request.mode,
@@ -678,6 +703,269 @@ async def query(request: QueryRequest):
     except Exception as e:
         logger.error(f"查询失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post(
+    "/query/analyze",
+    response_model=BaseResponse,
+    tags=["智能查询"],
+    summary="查询意图分析",
+    description="""
+    分析查询意图，进行内容安全检查，并提供查询优化建议。
+
+    **功能特点：**
+    - 意图识别：识别查询的具体意图类型
+    - 安全检查：过滤违法违规内容
+    - 查询增强：优化和补充查询内容
+    - 建议生成：提供查询改进建议
+
+    **意图类型：**
+    - knowledge_query: 知识查询
+    - factual_question: 事实性问题
+    - analytical_question: 分析性问题
+    - procedural_question: 程序性问题
+    - creative_request: 创意请求
+    - greeting: 问候
+    - unclear: 意图不明确
+    - illegal_content: 非法内容
+
+    **安全级别：**
+    - safe: 安全
+    - suspicious: 可疑
+    - unsafe: 不安全
+    - illegal: 非法
+    """,
+    responses={
+        200: {
+            "description": "查询分析成功",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "success": True,
+                        "message": "操作成功",
+                        "data": {
+                            "original_query": "什么是人工智能",
+                            "processed_query": "什么是人工智能",
+                            "intent_type": "knowledge_query",
+                            "safety_level": "safe",
+                            "confidence": 0.95,
+                            "suggestions": ["可以询问相关的应用场景"],
+                            "risk_factors": [],
+                            "enhanced_query": "请详细解释人工智能的概念、特点和应用场景",
+                            "should_reject": False,
+                            "rejection_reason": None
+                        }
+                    }
+                }
+            }
+        },
+        400: {
+            "description": "查询内容违规",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "success": False,
+                        "message": "查询内容涉及违法违规信息",
+                        "data": {
+                            "should_reject": True,
+                            "rejection_reason": "查询内容涉及违法违规信息，无法处理"
+                        }
+                    }
+                }
+            }
+        }
+    }
+)
+async def analyze_query_intent(request: QueryIntentAnalysisRequest):
+    """分析查询意图"""
+    try:
+        # 进行查询分析
+        analysis_result = await query_processor.process_query(
+            query=request.query,
+            context=request.context
+        )
+
+        # 对于被拒绝的查询，仍然返回成功状态，但标记should_reject=True
+        # 这样前端可以正确处理拒绝信息和安全提示
+        if analysis_result.should_reject:
+            return BaseResponse(
+                success=True,  # 分析成功，但查询被拒绝
+                message="查询分析完成，内容被安全检查拒绝",
+                data=QueryIntentAnalysisResponse(
+                    original_query=analysis_result.original_query,
+                    processed_query=analysis_result.processed_query,
+                    intent_type=analysis_result.intent_type.value,
+                    safety_level=analysis_result.safety_level.value,
+                    confidence=analysis_result.confidence,
+                    suggestions=analysis_result.suggestions,
+                    risk_factors=analysis_result.risk_factors,
+                    enhanced_query=analysis_result.enhanced_query,
+                    should_reject=analysis_result.should_reject,
+                    rejection_reason=analysis_result.rejection_reason,
+                    safety_tips=analysis_result.safety_tips or [],
+                    safe_alternatives=analysis_result.safe_alternatives or []
+                )
+            )
+
+        # /query/analyze 接口只做分析，不执行实际查询
+        # 如果需要执行查询，请使用 /query/safe 接口
+
+        # 返回分析结果
+        return BaseResponse(
+            data=QueryIntentAnalysisResponse(
+                original_query=analysis_result.original_query,
+                processed_query=analysis_result.processed_query,
+                intent_type=analysis_result.intent_type.value,
+                safety_level=analysis_result.safety_level.value,
+                confidence=analysis_result.confidence,
+                suggestions=analysis_result.suggestions,
+                risk_factors=analysis_result.risk_factors,
+                enhanced_query=analysis_result.enhanced_query,
+                should_reject=analysis_result.should_reject,
+                rejection_reason=analysis_result.rejection_reason,
+                safety_tips=analysis_result.safety_tips or [],
+                safe_alternatives=analysis_result.safe_alternatives or []
+            )
+        )
+    except Exception as e:
+        logger.error(f"查询意图分析失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post(
+    "/query/safe",
+    response_model=BaseResponse,
+    tags=["智能查询"],
+    summary="安全智能查询",
+    description="""
+    带有安全检查和意图分析的智能查询接口。
+
+    **安全特性：**
+    - 自动过滤违法违规内容
+    - 意图识别和查询优化
+    - 内容安全等级评估
+    - 智能查询增强
+
+    **处理流程：**
+    1. 查询安全检查
+    2. 意图识别分析
+    3. 查询内容优化
+    4. 执行知识库查询
+    5. 结果安全验证
+
+    **参数说明：**
+    - `mode` 为字符串类型，动态查询模式，建议通过 `GET /query/modes` 获取可用列表
+    - 其他参数含义与基础查询接口一致
+
+    **拒绝条件：**
+    - 包含违法违规关键词
+    - 涉及黄赌毒等非法内容
+    - 可能造成安全风险的查询
+    """,
+    responses={
+        200: {
+            "description": "安全查询成功",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "success": True,
+                        "message": "操作成功",
+                        "data": {
+                            "query_analysis": {
+                                "intent_type": "knowledge_query",
+                                "safety_level": "safe",
+                                "enhanced_query": "请详细解释人工智能的概念"
+                            },
+                            "query_result": {
+                                "result": "人工智能是...",
+                                "mode": "hybrid"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        403: {
+            "description": "查询被拒绝",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "查询内容涉及违法违规信息，无法处理"
+                    }
+                }
+            }
+        }
+    }
+)
+async def safe_query(request: SafeQueryRequest):
+    """安全智能查询"""
+    try:
+        query_analysis = None
+
+        # 1. 查询安全检查和意图分析
+        if request.safety_check or request.enable_intent_analysis:
+            analysis_result = await query_processor.process_query(
+                query=request.query,
+                context={"mode": request.mode if request.mode else None}
+            )
+
+            # 如果查询被标记为应该拒绝，直接返回拒绝
+            if analysis_result.should_reject:
+                raise HTTPException(
+                    status_code=403,
+                    detail=analysis_result.rejection_reason or "查询内容不符合安全要求"
+                )
+
+            query_analysis = {
+                "intent_type": analysis_result.intent_type.value,
+                "safety_level": analysis_result.safety_level.value,
+                "confidence": analysis_result.confidence,
+                "suggestions": analysis_result.suggestions,
+                "enhanced_query": analysis_result.enhanced_query
+            }
+
+            # 使用增强后的查询（如果启用了查询增强）
+            final_query = request.query
+            if request.enable_query_enhancement and analysis_result.enhanced_query:
+                final_query = analysis_result.enhanced_query
+            else:
+                final_query = analysis_result.processed_query
+        else:
+            final_query = request.query
+
+        # 2. 执行知识库查询
+        # 校验查询模式
+        if request.mode and not validate_query_mode(request.mode):
+            raise HTTPException(status_code=400, detail=f"无效的查询模式: {request.mode}")
+
+        # 将 knowledge_base 转换为 working_dir，避免传入 QueryParam 无法识别的字段
+        working_dir = None
+        if request.knowledge_base:
+            working_dir = f"./knowledgeBase/{request.knowledge_base}"
+
+        query_result = await guixiaoxirag_service.query(
+            query=final_query,
+            mode=request.mode,
+            working_dir=working_dir,
+            language=request.language
+        )
+
+        # 3. 构建响应
+        response_data = {
+            "query_result": query_result
+        }
+
+        if query_analysis:
+            response_data["query_analysis"] = query_analysis
+
+        return BaseResponse(data=response_data)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"安全查询失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 
 
 @app.get(
@@ -775,7 +1063,6 @@ async def get_query_modes():
             "recommended": ["hybrid", "mix", "local"]
         }
     )
-
 
 @app.post(
     "/query/batch",
@@ -892,7 +1179,6 @@ async def batch_query(queries: List[str], mode: str = "hybrid", top_k: int = 20)
     except Exception as e:
         logger.error(f"批量查询失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.post(
     "/insert/files",

@@ -9,10 +9,20 @@ import json
 
 class StreamlitAPIClient:
     """Streamlit专用的API客户端"""
-    
+
     def __init__(self, base_url: str = "http://localhost:8002"):
         self.base_url = base_url
         self.timeout = 120
+
+    def _safe_get(self, result: Any, key: str, default: Any = None) -> Any:
+        """安全地从结果中获取值"""
+        if result and isinstance(result, dict):
+            return result.get(key, default)
+        return default
+
+    def _is_success(self, result: Any) -> bool:
+        """检查结果是否成功"""
+        return result and isinstance(result, dict) and result.get("success", False)
     
     async def _request(self, method: str, endpoint: str, **kwargs) -> Optional[Dict[Any, Any]]:
         """通用请求方法"""
@@ -59,12 +69,12 @@ class StreamlitAPIClient:
     def get_system_status(self) -> Optional[Dict]:
         """获取系统状态"""
         result = self.request_sync("GET", "/system/status")
-        return result.get("data") if result and result.get("success") else None
-    
+        return self._safe_get(result, "data") if self._is_success(result) else None
+
     def reset_system(self) -> bool:
         """重置系统"""
         result = self.request_sync("POST", "/system/reset")
-        return result and result.get("success", False)
+        return self._is_success(result)
     
     # 文档管理方法
     def insert_text(self, text: str, doc_id: str = None, knowledge_base: str = None, 
@@ -79,8 +89,8 @@ class StreamlitAPIClient:
             data["language"] = language
         
         result = self.request_sync("POST", "/insert/text", json=data)
-        if result and result.get("success"):
-            return result["data"]["track_id"]
+        if self._is_success(result):
+            return self._safe_get(self._safe_get(result, "data", {}), "track_id")
         return None
     
     def insert_texts(self, texts: List[str], doc_ids: List[str] = None, 
@@ -95,16 +105,16 @@ class StreamlitAPIClient:
             data["language"] = language
         
         result = self.request_sync("POST", "/insert/texts", json=data)
-        if result and result.get("success"):
-            return result["data"]["track_id"]
+        if self._is_success(result):
+            return self._safe_get(self._safe_get(result, "data", {}), "track_id")
         return None
     
     def upload_file(self, file_content: bytes, filename: str) -> Optional[str]:
         """上传文件"""
         files = {"file": (filename, file_content, "text/plain")}
         result = self.request_sync("POST", "/insert/file", files=files)
-        if result and result.get("success"):
-            return result["data"]["track_id"]
+        if self._is_success(result):
+            return self._safe_get(self._safe_get(result, "data", {}), "track_id")
         return None
     
     def insert_directory(self, directory_path: str, knowledge_base: str = None, 
@@ -117,7 +127,7 @@ class StreamlitAPIClient:
             data["language"] = language
         
         result = self.request_sync("POST", "/insert/directory", json=data)
-        return result.get("data") if result and result.get("success") else None
+        return self._safe_get(result, "data") if self._is_success(result) else None
     
     # 查询方法
     def query(self, query: str, mode: str = "hybrid", top_k: int = 20, 
@@ -130,12 +140,12 @@ class StreamlitAPIClient:
             data["language"] = language
         
         result = self.request_sync("POST", "/query", json=data)
-        return result.get("data") if result and result.get("success") else None
+        return self._safe_get(result, "data") if self._is_success(result) else None
     
     def get_query_modes(self) -> Optional[Dict]:
         """获取查询模式"""
         result = self.request_sync("GET", "/query/modes")
-        return result.get("data") if result and result.get("success") else None
+        return self._safe_get(result, "data") if self._is_success(result) else None
     
     def batch_query(self, queries: List[str], mode: str = "hybrid", 
                    knowledge_base: str = None, language: str = None) -> Optional[List[Dict]]:
@@ -147,7 +157,7 @@ class StreamlitAPIClient:
             data["language"] = language
         
         result = self.request_sync("POST", "/query/batch", json=data)
-        return result.get("data", {}).get("results") if result and result.get("success") else None
+        return self._safe_get(self._safe_get(result, "data", {}), "results") if self._is_success(result) else None
     
     def optimized_query(self, query: str, mode: str = "hybrid", 
                        performance_level: str = "balanced") -> Optional[Dict]:
@@ -159,35 +169,35 @@ class StreamlitAPIClient:
         }
         
         result = self.request_sync("POST", "/query/optimized", json=data)
-        return result.get("data") if result and result.get("success") else None
+        return self._safe_get(result, "data") if self._is_success(result) else None
     
     # 知识库管理方法
     def list_knowledge_bases(self) -> Optional[List[Dict]]:
         """列出知识库"""
         result = self.request_sync("GET", "/knowledge-bases")
-        return result.get("data", {}).get("knowledge_bases") if result and result.get("success") else None
+        return self._safe_get(self._safe_get(result, "data", {}), "knowledge_bases") if self._is_success(result) else None
     
     def create_knowledge_base(self, name: str, description: str = "") -> bool:
         """创建知识库"""
         data = {"name": name, "description": description}
         result = self.request_sync("POST", "/knowledge-bases", json=data)
-        return result and result.get("success", False)
+        return self._is_success(result)
     
     def delete_knowledge_base(self, name: str) -> bool:
         """删除知识库"""
         result = self.request_sync("DELETE", f"/knowledge-bases/{name}")
-        return result and result.get("success", False)
+        return self._is_success(result)
     
     def switch_knowledge_base(self, name: str) -> bool:
         """切换知识库"""
         data = {"name": name}
         result = self.request_sync("POST", "/knowledge-bases/switch", json=data)
-        return result and result.get("success", False)
+        return self._is_success(result)
     
     def export_knowledge_base(self, name: str) -> Optional[Dict]:
         """导出知识库"""
         result = self.request_sync("GET", f"/knowledge-bases/{name}/export")
-        return result.get("data") if result and result.get("success") else None
+        return self._safe_get(result, "data") if self._is_success(result) else None
     
     # 知识图谱方法
     def get_knowledge_graph(self, node_label: str, max_depth: int = 3,
@@ -199,7 +209,7 @@ class StreamlitAPIClient:
             "max_nodes": max_nodes
         }
         result = self.request_sync("POST", "/knowledge-graph", json=data)
-        return result.get("data") if result and result.get("success") else None
+        return self._safe_get(result, "data") if self._is_success(result) else None
 
     # 知识图谱可视化方法
     def get_graph_status(self, knowledge_base: Optional[str] = None) -> Optional[Dict]:
@@ -208,7 +218,7 @@ class StreamlitAPIClient:
         if knowledge_base:
             params["knowledge_base"] = knowledge_base
         result = self.request_sync("GET", "/knowledge-graph/status", params=params)
-        return result.get("data") if result and result.get("success") else None
+        return self._safe_get(result, "data") if self._is_success(result) else None
 
     def convert_graph_to_json(self, knowledge_base: Optional[str] = None) -> Optional[Dict]:
         """转换GraphML到JSON"""
@@ -216,7 +226,7 @@ class StreamlitAPIClient:
         if knowledge_base:
             params["knowledge_base"] = knowledge_base
         result = self.request_sync("POST", "/knowledge-graph/convert", params=params)
-        return result.get("data") if result and result.get("success") else None
+        return self._safe_get(result, "data") if self._is_success(result) else None
 
     def get_graph_data(self, knowledge_base: Optional[str] = None,
                       format: str = "json") -> Optional[Dict]:
@@ -226,7 +236,7 @@ class StreamlitAPIClient:
             "format": format
         }
         result = self.request_sync("POST", "/knowledge-graph/data", json=data)
-        return result.get("data") if result and result.get("success") else None
+        return self._safe_get(result, "data") if self._is_success(result) else None
 
     def visualize_knowledge_graph(self, knowledge_base: Optional[str] = None,
                                  max_nodes: int = 100, layout: str = "spring",
@@ -241,7 +251,7 @@ class StreamlitAPIClient:
             "edge_width_field": edge_width_field
         }
         result = self.request_sync("POST", "/knowledge-graph/visualize", json=data)
-        return result.get("data") if result and result.get("success") else None
+        return self._safe_get(result, "data") if self._is_success(result) else None
 
     def list_graph_files(self, knowledge_base: Optional[str] = None) -> Optional[Dict]:
         """列出知识库中的图谱文件"""
@@ -249,35 +259,35 @@ class StreamlitAPIClient:
         if knowledge_base:
             params["knowledge_base"] = knowledge_base
         result = self.request_sync("GET", "/knowledge-graph/files", params=params)
-        return result.get("data") if result and result.get("success") else None
+        return self._safe_get(result, "data") if self._is_success(result) else None
     
     def get_knowledge_graph_stats(self) -> Optional[Dict]:
         """获取知识图谱统计"""
         result = self.request_sync("GET", "/knowledge-graph/stats")
-        return result.get("data") if result and result.get("success") else None
+        return self._safe_get(result, "data") if self._is_success(result) else None
     
     def clear_knowledge_graph(self) -> bool:
         """清空知识图谱"""
         result = self.request_sync("DELETE", "/knowledge-graph/clear")
-        return result and result.get("success", False)
+        return self._is_success(result)
     
     # 语言管理方法
     def get_supported_languages(self) -> Optional[Dict]:
         """获取支持的语言"""
         result = self.request_sync("GET", "/languages")
-        return result.get("data") if result and result.get("success") else None
+        return self._safe_get(result, "data") if self._is_success(result) else None
     
     def set_language(self, language: str) -> bool:
         """设置语言"""
         data = {"language": language}
         result = self.request_sync("POST", "/languages/set", json=data)
-        return result and result.get("success", False)
+        return self._is_success(result)
     
     # 服务配置方法
     def get_service_config(self) -> Optional[Dict]:
         """获取服务配置"""
         result = self.request_sync("GET", "/service/config")
-        return result.get("data") if result and result.get("success") else None
+        return self._safe_get(result, "data") if self._is_success(result) else None
     
     def switch_service_kb(self, knowledge_base: str, language: str = None) -> bool:
         """切换服务知识库"""
@@ -285,56 +295,56 @@ class StreamlitAPIClient:
         if language:
             data["language"] = language
         result = self.request_sync("POST", "/service/switch-kb", json=data)
-        return result and result.get("success", False)
+        return self._is_success(result)
     
     # 性能配置方法
     def get_performance_configs(self) -> Optional[Dict]:
         """获取性能配置"""
         result = self.request_sync("GET", "/performance/configs")
-        return result.get("data") if result and result.get("success") else None
+        return self._safe_get(result, "data") if self._is_success(result) else None
     
     def optimize_performance(self, mode: str = "basic") -> bool:
         """应用性能优化"""
         result = self.request_sync("POST", f"/performance/optimize?mode={mode}")
-        return result and result.get("success", False)
+        return self._is_success(result)
     
     # 监控方法
     def get_metrics(self) -> Optional[Dict]:
         """获取性能指标"""
         result = self.request_sync("GET", "/metrics")
-        return result.get("data") if result and result.get("success") else None
+        return self._safe_get(result, "data") if self._is_success(result) else None
     
     def get_logs(self, lines: int = 100) -> Optional[List[str]]:
         """获取系统日志"""
         result = self.request_sync("GET", f"/logs?lines={lines}")
-        return result.get("data", {}).get("logs") if result and result.get("success") else None
+        return self._safe_get(self._safe_get(result, "data", {}), "logs") if self._is_success(result) else None
 
     # 配置管理方法
     def get_effective_config(self) -> Optional[Dict]:
         """获取有效配置"""
         result = self.request_sync("GET", "/service/effective-config")
-        return result.get("data") if result and result.get("success") else None
+        return self._safe_get(result, "data") if self._is_success(result) else None
 
     def update_config(self, config_updates: Dict[str, Any]) -> Optional[Dict]:
         """更新配置"""
         result = self.request_sync("POST", "/service/config/update", json=config_updates)
-        return result.get("data") if result and result.get("success") else None
+        return self._safe_get(result, "data") if self._is_success(result) else None
 
     # 缓存管理方法
     def get_cache_stats(self) -> Optional[Dict]:
         """获取缓存统计信息"""
         result = self.request_sync("GET", "/cache/stats")
-        return result.get("data") if result and result.get("success") else None
+        return self._safe_get(result, "data") if self._is_success(result) else None
 
     def clear_all_cache(self) -> Optional[Dict]:
         """清理所有缓存"""
         result = self.request_sync("DELETE", "/cache/clear")
-        return result.get("data") if result and result.get("success") else None
+        return self._safe_get(result, "data") if self._is_success(result) else None
 
     def clear_specific_cache(self, cache_type: str) -> Optional[Dict]:
         """清理指定类型的缓存"""
         result = self.request_sync("DELETE", f"/cache/clear/{cache_type}")
-        return result.get("data") if result and result.get("success") else None
+        return self._safe_get(result, "data") if self._is_success(result) else None
 
     # 文件上传方法（支持知识库参数）
     def upload_file_with_kb(self, file_content: bytes, filename: str,
@@ -352,4 +362,37 @@ class StreamlitAPIClient:
             data["track_id"] = track_id
 
         result = self.request_sync("POST", "/insert/file", files=files, data=data)
-        return result.get("data") if result and result.get("success") else None
+        return self._safe_get(result, "data") if self._is_success(result) else None
+
+    # 查询意图分析方法
+    def analyze_query_intent(self, query: str, context: Optional[Dict] = None) -> Optional[Dict]:
+        """分析查询意图"""
+        data = {"query": query}
+        if context:
+            data["context"] = context
+
+        result = self.request_sync("POST", "/query/analyze", json=data)
+        return self._safe_get(result, "data") if self._is_success(result) else None
+
+    def safe_query(self, query: str, mode: str = "hybrid",
+                   knowledge_base: Optional[str] = None,
+                   language: Optional[str] = None,
+                   enable_intent_analysis: bool = True,
+                   enable_query_enhancement: bool = True,
+                   safety_check: bool = True) -> Optional[Dict]:
+        """安全智能查询"""
+        data = {
+            "query": query,
+            "mode": mode,
+            "enable_intent_analysis": enable_intent_analysis,
+            "enable_query_enhancement": enable_query_enhancement,
+            "safety_check": safety_check
+        }
+
+        if knowledge_base:
+            data["knowledge_base"] = knowledge_base
+        if language:
+            data["language"] = language
+
+        result = self.request_sync("POST", "/query/safe", json=data)
+        return self._safe_get(result, "data") if self._is_success(result) else None

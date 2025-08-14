@@ -306,14 +306,20 @@ def get_language_options():
 
 def render_query_interface(api_client):
     """渲染查询界面"""
-    tab1, tab2, tab3, tab4 = st.tabs(["🔍 基础查询", "⚡ 优化查询", "📊 批量查询", "🔧 查询模式"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["🔍 基础查询", "⚡ 优化查询", "📊 批量查询", "🔧 查询模式", "🛡️ 安全查询"])
 
     with tab1:
         st.subheader("🔍 基础查询")
 
         # 获取知识库和查询模式
         knowledge_bases = get_knowledge_base_options(api_client)
-        query_modes = ["hybrid", "local", "global", "naive", "mix", "bypass"]
+        # 动态获取查询模式（回退到默认列表）
+        modes_info = api_client.get_query_modes() or {}
+        modes = list((modes_info.get("modes") or {}).keys())
+        default_mode = modes_info.get("default", "hybrid")
+        if not modes:
+            modes = ["hybrid", "local", "global", "naive", "mix", "bypass"]
+        query_modes = modes
 
         with st.form("basic_query_form"):
             query_text = st.text_area(
@@ -324,7 +330,11 @@ def render_query_interface(api_client):
 
             col1, col2, col3, col4 = st.columns(4)
             with col1:
-                mode = st.selectbox("查询模式", query_modes)
+                # 使用后端推荐的默认模式作为初始选中
+                default_index = 0
+                if default_mode in query_modes:
+                    default_index = query_modes.index(default_mode)
+                mode = st.selectbox("查询模式", query_modes, index=default_index)
             with col2:
                 knowledge_base = st.selectbox("知识库", knowledge_bases, key="query_kb")
             with col3:
@@ -395,7 +405,11 @@ def render_query_interface(api_client):
 
             col1, col2, col3 = st.columns(3)
             with col1:
-                mode = st.selectbox("查询模式", query_modes, key="opt_mode")
+                # 使用后端默认模式
+                opt_default_index = 0
+                if default_mode in query_modes:
+                    opt_default_index = query_modes.index(default_mode)
+                mode = st.selectbox("查询模式", query_modes, key="opt_mode", index=opt_default_index)
             with col2:
                 performance_level = st.selectbox(
                     "性能级别",
@@ -447,7 +461,11 @@ def render_query_interface(api_client):
 
             col1, col2, col3 = st.columns(3)
             with col1:
-                mode = st.selectbox("查询模式", query_modes, key="batch_mode")
+                # 使用后端默认模式
+                batch_default_index = 0
+                if default_mode in query_modes:
+                    batch_default_index = query_modes.index(default_mode)
+                mode = st.selectbox("查询模式", query_modes, key="batch_mode", index=batch_default_index)
             with col2:
                 knowledge_base = st.selectbox("知识库", knowledge_bases, key="batch_kb")
             with col3:
@@ -515,6 +533,262 @@ def render_query_interface(api_client):
                 st.dataframe(df, use_container_width=True)
             else:
                 st.error("❌ 获取失败")
+
+    with tab5:
+        st.subheader("🛡️ 安全查询与意图分析")
+        st.info("🔒 此功能包含内容安全检查和意图分析，可自动过滤违法违规内容")
+
+        # 创建子标签页
+        subtab1, subtab2 = st.tabs(["🛡️ 安全查询", "🧠 意图分析"])
+
+        with subtab1:
+            st.markdown("### 🛡️ 安全智能查询")
+
+            knowledge_bases = get_knowledge_base_options(api_client)
+
+            with st.form("safe_query_form"):
+                safe_query = st.text_area(
+                    "输入查询内容",
+                    placeholder="请输入您的问题...",
+                    height=100,
+                    key="safe_query_input"
+                )
+
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    # 动态获取查询模式
+                    safe_modes_info = api_client.get_query_modes() or {}
+                    safe_modes = list((safe_modes_info.get("modes") or {}).keys())
+                    if not safe_modes:
+                        safe_modes = ["hybrid", "local", "global", "naive", "mix", "bypass"]
+                    safe_mode = st.selectbox("查询模式", safe_modes, key="safe_mode")
+                with col2:
+                    safe_knowledge_base = st.selectbox("知识库", knowledge_bases, key="safe_kb")
+                with col3:
+                    safe_language = st.selectbox("查询语言", get_language_options(), key="safe_lang")
+
+                # 安全选项
+                with st.expander("🔧 安全选项"):
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        enable_intent_analysis = st.checkbox("启用意图分析", value=True)
+                        enable_query_enhancement = st.checkbox("启用查询增强", value=True)
+                    with col_b:
+                        safety_check = st.checkbox("启用安全检查", value=True)
+
+                safe_submitted = st.form_submit_button("🛡️ 安全查询")
+
+                if safe_submitted and safe_query:
+                    with st.spinner("安全查询中..."):
+                        try:
+                            result = api_client.safe_query(
+                                query=safe_query,
+                                mode=safe_mode,
+                                knowledge_base=safe_knowledge_base if safe_knowledge_base != "默认" else None,
+                                language=safe_language,
+                                enable_intent_analysis=enable_intent_analysis,
+                                enable_query_enhancement=enable_query_enhancement,
+                                safety_check=safety_check
+                            )
+
+                            if result:
+                                st.success("✅ 安全查询完成！")
+
+                                # 显示查询分析结果
+                                if "query_analysis" in result:
+                                    analysis = result["query_analysis"]
+                                    st.markdown("### 🧠 查询分析")
+
+                                    col1, col2, col3 = st.columns(3)
+                                    with col1:
+                                        st.metric("意图类型", analysis.get("intent_type", "未知"))
+                                    with col2:
+                                        st.metric("安全级别", analysis.get("safety_level", "未知"))
+                                    with col3:
+                                        st.metric("置信度", f"{analysis.get('confidence', 0):.2%}")
+
+                                    if analysis.get("enhanced_query"):
+                                        st.markdown("**增强后的查询:**")
+                                        st.info(analysis["enhanced_query"])
+
+                                    if analysis.get("suggestions"):
+                                        st.markdown("**改进建议:**")
+                                        for suggestion in analysis["suggestions"]:
+                                            st.write(f"• {suggestion}")
+
+                                    # 安全提示与替代问法
+                                    if analysis.get("safety_tips") or analysis.get("safe_alternatives"):
+                                        st.markdown("**安全与合规提示:**")
+                                        for tip in (analysis.get("safety_tips") or []):
+                                            st.info(f"⚠️ {tip}")
+                                        if analysis.get("safe_alternatives"):
+                                            st.markdown("**建议改写:**")
+                                            for alt in analysis["safe_alternatives"]:
+                                                st.write(f"• {alt}")
+
+                                # 显示查询结果
+                                if "query_result" in result:
+                                    query_result = result["query_result"]
+                                    st.markdown("### 📝 查询结果")
+                                    st.write(query_result.get("result", ""))
+
+                                    if "sources" in query_result:
+                                        st.markdown("### 📚 参考来源")
+                                        for i, source in enumerate(query_result["sources"], 1):
+                                            st.write(f"{i}. {source}")
+                            else:
+                                st.error("❌ 安全查询失败")
+
+                        except Exception as e:
+                            if "403" in str(e) or "查询内容" in str(e):
+                                st.error("🚫 查询被拒绝：内容可能涉及违法违规信息")
+                                st.warning("请重新表述您的问题，避免涉及敏感内容")
+                            else:
+                                st.error(f"❌ 查询失败: {str(e)}")
+
+        with subtab2:
+            st.markdown("### 🧠 查询意图分析")
+            st.info("🔍 基于大模型的智能意图分析，检查内容安全性，并提供优化建议")
+
+            with st.form("intent_analysis_form"):
+                analysis_query = st.text_area(
+                    "输入要分析的查询",
+                    placeholder="请输入您想要分析的查询内容...",
+                    height=100,
+                    key="analysis_query_input"
+                )
+
+                # 分析选项
+                col1, col2 = st.columns(2)
+                with col1:
+                    enable_enhancement = st.checkbox("启用查询增强", value=True, key="enable_enhancement")
+                    safety_check = st.checkbox("启用安全检查", value=True, key="safety_check")
+                with col2:
+                    proceed_if_safe = st.checkbox("安全时直接执行查询", value=True, key="proceed_if_safe")
+                    # 上下文设置
+                    with st.expander("🔧 查询上下文"):
+                        ctx_mode = st.selectbox("查询模式", ["hybrid", "local", "global", "naive"], key="ctx_mode")
+                        ctx_kb = st.text_input("知识库", placeholder="可选", key="ctx_kb")
+                        ctx_lang = st.selectbox("语言", ["中文", "English"], key="ctx_lang")
+
+                analysis_submitted = st.form_submit_button("🧠 智能分析")
+
+                if analysis_submitted and analysis_query:
+                    with st.spinner("🧠 大模型智能分析中..."):
+                        # 构建上下文
+                        context = {}
+                        if ctx_mode != "hybrid":
+                            context["mode"] = ctx_mode
+                        if ctx_kb:
+                            context["knowledge_base"] = ctx_kb
+                        if ctx_lang != "中文":
+                            context["language"] = ctx_lang
+
+                        # 调用分析接口
+                        import requests
+                        try:
+                            response = requests.post(
+                                f"{api_client.base_url}/query/analyze",
+                                json={
+                                    "query": analysis_query,
+                                    "context": context if context else None,
+                                    "enable_enhancement": enable_enhancement,
+                                    "safety_check": safety_check,
+                                    "proceed_if_safe": proceed_if_safe
+                                }
+                            )
+
+                            if response.status_code == 200:
+                                result = response.json()
+                                if result.get("success"):
+                                    analysis_result = result.get("data")
+                                else:
+                                    st.error(f"❌ 分析失败: {result.get('message', '未知错误')}")
+                                    analysis_result = None
+                            else:
+                                st.error(f"❌ 请求失败: HTTP {response.status_code}")
+                                analysis_result = None
+                        except Exception as e:
+                            st.error(f"❌ 分析失败: {str(e)}")
+                            analysis_result = None
+
+                        if analysis_result:
+                            # 检查是否包含查询结果（proceed_if_safe=True时）
+                            if "query_result" in analysis_result:
+                                st.success("✅ 智能分析完成并已执行查询！")
+
+                                # 显示查询结果
+                                st.markdown("### 📝 查询结果")
+                                query_result = analysis_result["query_result"]
+                                st.write(query_result.get("result", ""))
+
+                                if "sources" in query_result:
+                                    st.markdown("### 📚 参考来源")
+                                    for i, source in enumerate(query_result["sources"], 1):
+                                        st.write(f"{i}. {source}")
+
+                                # 显示分析信息（折叠）
+                                with st.expander("🧠 详细分析信息"):
+                                    analysis_data = analysis_result.get("query_analysis", analysis_result)
+                                    self._render_analysis_details(analysis_data)
+                            else:
+                                st.success("✅ 智能分析完成！")
+                                self._render_analysis_details(analysis_result)
+                        else:
+                            st.error("❌ 智能分析失败")
+
+    def _render_analysis_details(self, analysis_result):
+        """渲染分析详情"""
+        # 基本信息
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**原始查询:**")
+            st.code(analysis_result.get("original_query", ""))
+
+            st.markdown("**处理后查询:**")
+            st.code(analysis_result.get("processed_query", ""))
+
+        with col2:
+            st.metric("意图类型", analysis_result.get("intent_type", "未知"))
+            st.metric("安全级别", analysis_result.get("safety_level", "未知"))
+            st.metric("置信度", f"{analysis_result.get('confidence', 0):.2%}")
+
+        # 增强查询
+        if analysis_result.get("enhanced_query"):
+            st.markdown("### ✨ 大模型增强查询")
+            st.success(analysis_result["enhanced_query"])
+
+        # 建议和风险因素
+        col1, col2 = st.columns(2)
+
+        with col1:
+            if analysis_result.get("suggestions"):
+                st.markdown("### 💡 智能建议")
+                for suggestion in analysis_result["suggestions"]:
+                    st.write(f"• {suggestion}")
+
+            # 安全提示与替代问法
+            if analysis_result.get("safety_tips") or analysis_result.get("safe_alternatives"):
+                st.markdown("### 🛡️ 安全与合规提示")
+                for tip in (analysis_result.get("safety_tips") or []):
+                    st.info(f"⚠️ {tip}")
+                if analysis_result.get("safe_alternatives"):
+                    st.markdown("**大模型建议改写:**")
+                    for alt in analysis_result["safe_alternatives"]:
+                        st.write(f"• {alt}")
+
+        with col2:
+            if analysis_result.get("risk_factors"):
+                st.markdown("### ⚠️ 风险因素")
+                for risk in analysis_result["risk_factors"]:
+                    st.warning(f"⚠️ {risk}")
+
+        # 拒绝信息
+        if analysis_result.get("should_reject"):
+            st.error("🚫 查询被拒绝")
+            if analysis_result.get("rejection_reason"):
+                st.error(f"拒绝原因: {analysis_result['rejection_reason']}")
+
 
 def render_knowledge_base_management(api_client):
     """渲染知识库管理界面"""

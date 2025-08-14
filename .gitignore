@@ -210,3 +210,4 @@ knowledgeBase/*
 */.DS_Store
 logs/*
 uploads/*
+*/logs

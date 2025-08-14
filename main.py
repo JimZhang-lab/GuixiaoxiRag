@@ -69,21 +69,27 @@ class GuiXiaoXiRagServer:
     def check_model_services(self):
         """检查大模型服务是否可用"""
         import httpx
-        
+
         services = [
-            ("LLM服务", settings.openai_api_base),
-            ("Embedding服务", settings.openai_embedding_api_base)
+            ("LLM服务", settings.openai_api_base, settings.openai_chat_api_key),
+            ("Embedding服务", settings.openai_embedding_api_base, settings.openai_embedding_api_key)
         ]
-        
+
         print("🔍 检查模型服务状态:")
-        for name, url in services:
+        for name, url, api_key in services:
             try:
+                headers = {}
+                if api_key and api_key != "your_api_key_here":
+                    headers["Authorization"] = f"Bearer {api_key}"
+
                 with httpx.Client(timeout=5) as client:
-                    response = client.get(f"{url}/models")
+                    response = client.get(f"{url}/models", headers=headers)
                     if response.status_code == 200:
                         print(f"   ✅ {name} 可用 ({url})")
                     else:
                         print(f"   ⚠️ {name} 响应异常 (状态码: {response.status_code})")
+                        if response.status_code == 401:
+                            print(f"   💡 API密钥可能无效，请检查配置")
             except Exception as e:
                 print(f"   ❌ {name} 不可用: {e}")
                 print(f"   💡 请确保 {name} 正在运行在 {url}")

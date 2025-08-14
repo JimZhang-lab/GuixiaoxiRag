@@ -199,6 +199,53 @@ curl -X POST "http://localhost:8002/insert/directory" \
 - **接口**: `POST /query`
 - **描述**: 智能知识查询
 
+### 查询意图分析
+- **接口**: `POST /query/analyze`
+- **描述**: 基于大模型的智能查询意图分析和内容安全检查
+- **特性**: 使用集成的LLM进行意图识别、敏感内容判断和查询增强
+
+```bash
+curl -X POST "http://localhost:8002/query/analyze" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "什么是人工智能？",
+    "context": {
+      "mode": "hybrid",
+      "knowledge_base": "ai_kb",
+      "language": "中文"
+    },
+    "enable_enhancement": true,
+    "safety_check": true,
+    "proceed_if_safe": true
+  }'
+```
+
+**大模型功能**：
+- 智能意图识别：准确判断查询类型和用户意图
+- 敏感内容检测：基于语义理解的安全检查
+- 查询增强优化：智能扩展和优化查询内容
+- 安全替代建议：为违规查询提供正向改写建议
+
+### 安全智能查询
+- **接口**: `POST /query/safe`
+- **描述**: 基于大模型的安全检查和意图分析的智能查询
+- **说明**: `mode` 为字符串，建议通过 `GET /query/modes` 获取支持列表
+- **特性**: 集成大模型进行深度安全检查和查询优化
+
+```bash
+curl -X POST "http://localhost:8002/query/safe" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "什么是人工智能？",
+    "mode": "hybrid",
+    "knowledge_base": "ai_kb",
+    "language": "中文",
+    "enable_intent_analysis": true,
+    "enable_query_enhancement": true,
+    "safety_check": true
+  }'
+```
+
 ```bash
 curl -X POST "http://localhost:8002/query" \
   -H "Content-Type: application/json" \

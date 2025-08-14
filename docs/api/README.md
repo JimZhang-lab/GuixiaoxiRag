@@ -57,8 +57,12 @@ curl -X POST "http://localhost:8002/query" \
 ### 🔍 智能查询
 - 基础查询：`POST /query`
 - 批量查询：`POST /query/batch`
+- 查询意图分析：`POST /query/analyze`
+- 安全智能查询：`POST /query/safe`
+- 查询意图分析：`POST /query/analyze`
+- 安全智能查询：`POST /query/safe`
 - 优化查询：`POST /query/optimized`
-- 查询模式：`GET /query/modes`
+- 查询模式：`GET /query/modes`（mode 为字符串，建议通过该接口获取可用列表）
 
 ### 🗄️ 知识库管理
 - 列出知识库：`GET /knowledge-bases`

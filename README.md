@@ -23,6 +23,22 @@
 - **多模式查询**: 支持 6 种查询模式（hybrid、local、global、naive、mix、bypass）
 - **知识图谱**: 基于图谱技术，提供关系推理能力
 - **语义理解**: 深度语义匹配，精准理解用户意图
+- **智能分析**: 查询意图识别、安全检查、查询增强
+- **Think标签处理**: 自动过滤大模型思考过程，提取纯净答案
+
+### 🎯 独立意图识别服务 ⭐ **新增**
+- **微服务架构**: 意图识别功能独立为微服务，可单独部署
+- **智能分析**: 查询意图识别、安全检查、查询增强
+- **安全防护**: 违规内容拒绝、正向引导、安全提示
+- **高性能**: 异步处理，响应时间 < 0.01秒
+- **易集成**: 标准REST API，支持多语言调用
+
+**快速启动**:
+```bash
+cd intent_recognition
+python3 simple_start.py  # 或 ./run.sh
+# 服务地址: http://localhost:8003
+```
 
 ### 📚 文档处理系统
 - **多格式支持**: TXT、PDF、DOCX、MD、JSON、XML、CSV 等格式
@@ -33,6 +49,12 @@
 - **多租户支持**: 独立的知识库空间，数据隔离
 - **动态切换**: 支持运行时切换不同知识库
 - **可视化管理**: 知识图谱可视化和交互式管理
+
+### 🛡️ 安全与合规
+- **智能安全检查**: 基于LLM的语义级安全分析
+- **违规内容拒绝**: 自动识别和拒绝违法违规查询
+- **正向引导**: 为违规查询提供合规的替代建议
+- **多层防护**: LLM分析 + 规则回退的双重保障
 
 ### ⚙️ 配置管理
 - **动态配置**: 支持运行时配置更新，无需重启服务
@@ -85,7 +107,15 @@ GuixiaoxiRag/
 │   ├── 📁 getting-started/      # 快速上手指南
 │   ├── 📁 api/                  # API文档
 │   ├── 📁 features/             # 功能指南
+│   ├── 📁 modules/              # 模块文档
 │   └── 📁 project/              # 项目信息
+├── 📁 intent_recognition/       # 🧠 意图识别服务 ⭐ 新增
+│   ├── 📁 core/                 # 核心功能模块
+│   ├── 📁 api/                  # API服务模块
+│   ├── 📁 config/               # 配置管理
+│   ├── 🚀 simple_start.py       # 快速启动脚本
+│   ├── 🧪 test_client.py        # 测试客户端
+│   └── 📖 README.md             # 模块文档
 ├── 📁 deployment/               # 部署配置
 │   ├── 🐳 Dockerfile           # Docker镜像
 │   ├── 🐙 docker-compose.yml   # 容器编排
@@ -182,6 +212,12 @@ open http://localhost:8002/docs
 streamlit run start_streamlit.py --server.port 8501
 open http://localhost:8501
 
+# 启动意图识别服务（可选）⭐ 新增
+cd intent_recognition
+python3 simple_start.py
+# 或使用快捷脚本: ./run.sh
+open http://localhost:8003
+
 # 验证配置（可选）
 python scripts/guixiaoxirag_cli.py service effective-config
 
@@ -199,7 +235,17 @@ curl -X POST "http://localhost:8002/insert/text" \
   -H "Content-Type: application/json" \
   -d '{"text": "人工智能是计算机科学的一个分支"}'
 
-# 查询知识库
+# 查询意图分析（只做分析，不执行查询）
+curl -X POST "http://localhost:8002/query/analyze" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "什么是人工智能？", "enable_enhancement": true, "safety_check": true}'
+
+# 安全查询（分析+查询执行）
+curl -X POST "http://localhost:8002/query/safe" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "什么是人工智能？", "mode": "hybrid", "enable_intent_analysis": true}'
+
+# 传统查询知识库
 curl -X POST "http://localhost:8002/query" \
   -H "Content-Type: application/json" \
   -d '{"query": "什么是人工智能？", "mode": "hybrid"}'
@@ -207,6 +253,11 @@ curl -X POST "http://localhost:8002/query" \
 # 上传文件
 curl -X POST "http://localhost:8002/insert/file" \
   -F "file=@document.pdf"
+
+# 使用独立意图识别服务 ⭐ 新增
+curl -X POST "http://localhost:8003/analyze" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "什么是人工智能？", "enable_enhancement": true, "safety_check": true}'
 ```
 
 ### 命令行工具
@@ -271,6 +322,11 @@ LOG_DIR=./logs
 STREAMLIT_HOST=0.0.0.0
 STREAMLIT_PORT=8501
 STREAMLIT_API_URL=http://localhost:8002
+
+# 意图识别服务配置 ⭐ 新增
+INTENT_HOST=0.0.0.0
+INTENT_PORT=8003
+INTENT_LLM_ENABLED=false
 ```
 
 详细配置说明请参考：[配置指南](docs/getting-started/CONFIGURATION_GUIDE.md)
@@ -403,7 +459,10 @@ curl "http://localhost:8002/logs?lines=100"
 ## 🚨 常见问题
 
 ### ❓ 服务启动问题
-- **端口占用**: 使用 `python main.py --port 8003` 更换端口
+- **端口占用**:
+  - 主服务: 使用 `python main.py --port 8004` 更换端口
+  - Streamlit: 使用 `streamlit run start_streamlit.py --server.port 8502`
+  - 意图识别: 修改 `intent_recognition/config/settings.py` 中的端口配置
 - **依赖缺失**: 运行 `pip install -r requirements.txt` 重新安装
 - **环境错误**: 确认激活了正确的conda环境
 

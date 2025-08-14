@@ -269,6 +269,44 @@ class FileUploadRequest(BaseModel):
 
 
 # 知识图谱可视化相关模型
+# 查询处理相关模型
+class QueryIntentAnalysisRequest(BaseModel):
+    """查询意图分析请求"""
+    query: str = Field(..., description="查询内容")
+    context: Optional[Dict[str, Any]] = Field(None, description="查询上下文（可包含 mode、knowledge_base、language）")
+    enable_enhancement: bool = Field(default=True, description="是否启用查询增强")
+    safety_check: bool = Field(default=True, description="是否进行安全检查")
+    proceed_if_safe: bool = Field(default=False, description="[已弃用] /query/analyze 接口只做分析，不执行查询。如需执行查询请使用 /query/safe 接口")
+
+
+class QueryIntentAnalysisResponse(BaseModel):
+    """查询意图分析响应"""
+    original_query: str = Field(..., description="原始查询")
+    processed_query: str = Field(..., description="处理后的查询")
+    intent_type: str = Field(..., description="意图类型")
+    safety_level: str = Field(..., description="安全级别")
+    confidence: float = Field(..., description="置信度")
+    suggestions: List[str] = Field(default_factory=list, description="改进建议（通常为正向建议）")
+    risk_factors: List[str] = Field(default_factory=list, description="风险因素")
+    enhanced_query: Optional[str] = Field(None, description="增强后的查询（仅在安全时提供）")
+    should_reject: bool = Field(default=False, description="是否应该拒绝")
+    rejection_reason: Optional[str] = Field(None, description="拒绝原因")
+    safety_tips: List[str] = Field(default_factory=list, description="安全与合规提示")
+    safe_alternatives: List[str] = Field(default_factory=list, description="建议改写（正向、安全）")
+
+
+class SafeQueryRequest(BaseModel):
+    """安全查询请求"""
+    query: str = Field(..., description="查询内容")
+    # 使用字符串作为查询模式，避免将模式写死为枚举，保持与 /query/modes 动态能力一致
+    mode: Optional[str] = Field(default="hybrid", description="查询模式")
+    knowledge_base: Optional[str] = Field(None, description="知识库名称")
+    language: Optional[SupportedLanguage] = Field(None, description="查询语言")
+    enable_intent_analysis: bool = Field(default=True, description="是否启用意图分析")
+    enable_query_enhancement: bool = Field(default=True, description="是否启用查询增强")
+    safety_check: bool = Field(default=True, description="是否进行安全检查")
+
+
 class GraphVisualizationRequest(BaseModel):
     """知识图谱可视化请求"""
     knowledge_base: Optional[str] = Field(None, description="知识库名称")

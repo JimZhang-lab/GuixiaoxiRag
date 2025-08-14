@@ -16,6 +16,8 @@ docs/
 ├── 📁 api/                 # 📚 API文档
 │   ├── API_REFERENCE.md    # 完整API参考
 │   ├── API_EXAMPLES.md     # 实用调用示例
+│   ├── API_INTERFACES.md   # API接口文档
+│   ├── API_OPTIMIZATION_REPORT.md # API优化报告
 │   └── README.md           # API文档导航
 │
 ├── 📁 features/            # 🌟 功能指南
@@ -24,9 +26,15 @@ docs/
 │   ├── KNOWLEDGE_BASE_LANGUAGE_FEATURES.md # 多语言功能
 │   └── README.md           # 功能指南导航
 │
+├── 📁 modules/             # 🧩 模块文档
+│   ├── README.md           # 模块导航
+│   └── INTENT_RECOGNITION.md # 意图识别服务
+│
 ├── 📁 project/             # 📊 项目信息
 │   ├── PROJECT_ARCHITECTURE.md # 项目架构详解
 │   ├── PROJECT_SUMMARY.md  # 项目概览总结
+│   ├── INTENT_RECOGNITION_MODULE_REPORT.md # 意图识别模块报告
+│   ├── OPTIMIZATION_SUMMARY.md # 优化总结
 │   └── README.md           # 项目信息导航
 │
 └── README.md               # 📖 文档中心首页
@@ -58,6 +66,10 @@ docs/
 - **[功能指南中心](features/README.md)** - 功能导航
 - **[Web界面指南](features/STREAMLIT_INTERFACE_GUIDE.md)** - 界面功能详解
 - **[多语言功能](features/KNOWLEDGE_BASE_LANGUAGE_FEATURES.md)** - 语言和知识库
+
+### 🧩 我想了解独立模块
+- **[模块文档中心](modules/README.md)** - 模块导航
+- **[意图识别服务](modules/INTENT_RECOGNITION.md)** - 独立微服务
 
 ### 📊 我想了解项目架构
 - **[项目信息中心](project/README.md)** - 项目信息导航
@@ -102,6 +114,11 @@ ARCH → FEATURES → API_REF
 
 ### 🎨 管理界面
 - **Streamlit界面**: [http://localhost:8501](http://localhost:8501) - Web管理界面
+
+### 🧠 意图识别服务
+- **服务地址**: [http://localhost:8003](http://localhost:8003) - 意图识别微服务
+- **API文档**: [http://localhost:8003/docs](http://localhost:8003/docs) - 意图识别API文档
+- **健康检查**: [http://localhost:8003/health](http://localhost:8003/health) - 服务状态
 
 ### 🔧 系统接口
 - **健康检查**: [http://localhost:8002/health](http://localhost:8002/health)

@@ -1207,6 +1207,88 @@ success = setup_and_upload(client, config_updates, file_paths, "research_kb")
 print(f"\n{'✅ 操作完成' if success else '❌ 操作失败'}")
 ```
 
+## 查询安全与意图分析示例
+
+### 基于大模型的查询意图分析
+```python
+def analyze_query_with_llm(query, context=None, proceed_if_safe=True):
+    """使用大模型进行智能查询分析"""
+    payload = {
+        "query": query,
+        "enable_enhancement": True,
+        "safety_check": True,
+        "proceed_if_safe": proceed_if_safe
+    }
+
+    if context:
+        payload["context"] = context
+
+    response = requests.post(f"{BASE_URL}/query/analyze", json=payload)
+
+    if response.status_code == 200:
+        result = response.json()["data"]
+
+        print(f"🧠 大模型分析结果:")
+        print(f"  原始查询: {result['original_query']}")
+        print(f"  意图类型: {result['intent_type']}")
+        print(f"  安全级别: {result['safety_level']}")
+        print(f"  置信度: {result['confidence']:.2%}")
+
+        if result.get('enhanced_query'):
+            print(f"  增强查询: {result['enhanced_query']}")
+
+        if result.get('suggestions'):
+            print("  智能建议:")
+            for suggestion in result['suggestions']:
+                print(f"    - {suggestion}")
+
+        # 如果设置了proceed_if_safe且安全，会直接返回查询结果
+        if 'query_result' in result:
+            print(f"\n📝 查询结果:")
+            print(result['query_result'].get('result', ''))
+
+        return result
+    else:
+        print(f"❌ 分析失败: {response.status_code}")
+        return None
+
+# 使用示例
+# 1. 安全查询 - 直接分析并执行
+result = analyze_query_with_llm(
+    "什么是人工智能？",
+    context={"mode": "hybrid", "knowledge_base": "ai_kb"},
+    proceed_if_safe=True
+)
+
+# 2. 仅分析不执行
+analysis = analyze_query_with_llm(
+    "如何学习机器学习？",
+    proceed_if_safe=False
+)
+
+# 3. 敏感内容检测
+sensitive_result = analyze_query_with_llm(
+    "如何实施网络攻击？",
+    proceed_if_safe=False
+)
+```
+
+### 安全智能查询
+```python
+# 带有安全检查和意图分析的查询
+resp = requests.post(
+    f"{BASE_URL}/query/safe",
+    json={
+        "query": "什么是人工智能？",
+        "mode": "hybrid",
+        "enable_intent_analysis": True,
+        "enable_query_enhancement": True,
+        "safety_check": True
+    }
+)
+print(resp.json())
+```
+
 ## 缓存管理示例
 
 ### 获取缓存统计信息
