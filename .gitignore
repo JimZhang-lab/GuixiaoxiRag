@@ -211,3 +211,4 @@ knowledgeBase/*
 logs/*
 uploads/*
 */logs
+*/config.yaml

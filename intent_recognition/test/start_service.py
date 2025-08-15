@@ -27,7 +27,7 @@ def setup_logging(log_level: str = "INFO"):
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
             logging.StreamHandler(sys.stdout),
-            logging.FileHandler('logs/intent_recognition.log')
+            logging.FileHandler('intent_recognition.log')
         ]
     )
 

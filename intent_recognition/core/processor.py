@@ -17,6 +17,8 @@ sys.path.insert(0, str(parent_dir))
 
 from core.models import QueryIntentType, ContentSafetyLevel, QueryAnalysisResult
 from core.utils import QueryUtils
+from core.dfa_filter import SensitiveWordManager
+from config.settings import Config
 
 logger = logging.getLogger(__name__)
 
@@ -32,22 +34,25 @@ def extracted_think_and_answer(response_content):
 class QueryProcessor:
     """基于大模型的查询处理器"""
 
-    def __init__(self, llm_func=None):
+    def __init__(self, config: Config = None, llm_func=None):
+        self.config = config or Config()
         self.llm_func = llm_func
-        self.illegal_keywords = self._load_illegal_keywords()
+
+        # 初始化DFA敏感词管理器
+        self.sensitive_word_manager = SensitiveWordManager(self.config.safety.model_dump())
+        self.sensitive_word_manager.initialize()
+
+        # 从配置加载数据
+        self.educational_intent_patterns = self._get_default_educational_patterns()
+
+        # 意图识别模式
         self.intent_patterns = self._load_intent_patterns()
-        self.enhancement_templates = self._load_enhancement_templates()
-        
-        # 方向性意图：正向教育/防范 与 负面实施/教程
-        self.educational_intent_patterns = [
-            "防范", "避免", "识别", "辨别", "举报", "报警", "危害", "风险", "法律后果",
-            "合规", "合法", "合规要求", "不良后果", "如何远离", "不该做", "违法与否",
-            "how to avoid", "how to report", "how to identify", "risk", "legal consequences"
-        ]
-        self.instructive_intent_patterns = [
-            "实施", "教程", "步骤", "方法", "技巧", "购买", "在哪里买", "获取", "制作",
-            "how to", "guide", "step by step", "where to buy", "make", "build"
-        ]
+
+        # 查询增强模板（内置）
+        self.enhancement_templates = self._get_default_enhancement_templates()
+
+        # 置信度阈值
+        self.confidence_threshold = self.config.intent.confidence_threshold
 
         # 大模型提示词模板
         self.safety_check_prompt = """
@@ -130,33 +135,7 @@ class QueryProcessor:
 - 严格按照JSON格式返回，不要包含其他内容
 """
 
-    def _load_illegal_keywords(self) -> List[str]:
-        """加载非法关键词列表"""
-        return [
-            # 毒品相关
-            "毒品", "海洛因", "可卡因", "冰毒", "摇头丸", "大麻", "鸦片", "吗啡",
-            "drugs", "heroin", "cocaine", "methamphetamine", "ecstasy", "marijuana",
 
-            # 暴力犯罪
-            "杀人", "谋杀", "暗杀", "爆炸", "炸弹", "枪支", "武器", "恐怖主义",
-            "murder", "assassination", "bomb", "weapon", "terrorism", "gun",
-
-            # 诈骗相关
-            "诈骗", "骗钱", "传销", "庞氏骗局", "洗钱", "假币", "伪造",
-            "fraud", "scam", "ponzi", "money laundering", "counterfeit",
-
-            # 色情相关
-            "色情", "裸体", "性交", "卖淫", "嫖娼", "性服务",
-            "pornography", "nude", "prostitution", "sex service",
-
-            # 赌博相关
-            "赌博", "赌场", "老虎机", "网络赌博", "地下赌场",
-            "gambling", "casino", "slot machine", "online gambling",
-
-            # 其他违法
-            "人口贩卖", "器官买卖", "黑客攻击", "网络入侵", "盗版",
-            "human trafficking", "organ trade", "hacking", "piracy"
-        ]
 
     def _load_intent_patterns(self) -> Dict[QueryIntentType, List[str]]:
         """加载意图识别模式"""
@@ -187,8 +166,8 @@ class QueryProcessor:
             ]
         }
 
-    def _load_enhancement_templates(self) -> Dict[QueryIntentType, str]:
-        """加载查询增强模板"""
+    def _get_default_enhancement_templates(self) -> Dict[QueryIntentType, str]:
+        """获取默认查询增强模板"""
         return {
             QueryIntentType.KNOWLEDGE_QUERY: "请详细解释{query}的概念、特点和应用场景",
             QueryIntentType.FACTUAL_QUESTION: "关于{query}，请提供准确的事实信息和相关背景",
@@ -378,28 +357,19 @@ class QueryProcessor:
             return await self._check_content_safety(query)
 
     async def _check_content_safety(self, query: str) -> Dict[str, Any]:
-        """检查内容安全性（规则回退）"""
-        risk_score = QueryUtils.calculate_risk_score(
-            query, self.illegal_keywords,
-            self.educational_intent_patterns,
-            self.instructive_intent_patterns
-        )
+        """检查内容安全性（DFA过滤器）"""
+        if not self.sensitive_word_manager:
+            logger.warning("敏感词管理器未初始化")
+            return {
+                "is_safe": True,
+                "safety_level": "safe",
+                "risk_factors": [],
+                "confidence": 0.5,
+                "reason": "敏感词管理器未初始化"
+            }
 
-        safety_level = QueryUtils.determine_safety_level(risk_score)
-        is_safe = safety_level == "safe"
-
-        hits = QueryUtils.find_illegal_hits(query, self.illegal_keywords)
-        risk_factors = []
-        if hits:
-            risk_factors.append(f"命中非法主题: {', '.join(hits)}")
-
-        return {
-            "is_safe": is_safe,
-            "safety_level": safety_level,
-            "risk_factors": risk_factors,
-            "confidence": 0.7,  # 规则检查的置信度较低
-            "reason": "规则安全检查"
-        }
+        # 使用DFA过滤器检查
+        return self.sensitive_word_manager.check_content_safety(query)
 
     async def _llm_intent_analysis(self, query: str) -> Dict[str, Any]:
         """使用大模型进行意图分析"""
@@ -595,3 +565,11 @@ class QueryProcessor:
     async def _generate_safe_alternatives(self, query: str) -> List[str]:
         """生成安全替代建议"""
         return QueryUtils.generate_default_alternatives(query)
+
+    def _get_default_educational_patterns(self) -> List[str]:
+        """获取默认教育导向模式"""
+        return [
+            "防范", "避免", "识别", "辨别", "举报", "报警", "危害", "风险", "法律后果",
+            "合规", "合法", "合规要求", "不良后果", "如何远离", "不该做", "违法与否",
+            "how to avoid", "how to report", "how to identify", "risk", "legal consequences"
+        ]

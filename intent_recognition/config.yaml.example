@@ -1,0 +1,184 @@
+# 意图识别服务配置示例文件
+# 复制此文件为 config.yaml 并根据需要修改配置
+
+# 服务配置
+service:
+  name: "意图识别服务"
+  version: "1.0.0"
+  host: "0.0.0.0"
+  port: 8003
+  debug: false
+
+# 日志配置
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  file: "intent_recognition.log"
+
+# 大模型配置
+llm:
+  enabled: false  # 是否启用LLM，false时使用DFA过滤
+  provider: "openai"  # openai, azure, ollama, custom
+  
+  # 提供商配置
+  providers:
+    # OpenAI配置
+    openai:
+      api_base: "https://api.openai.com/v1"
+      api_key: "sk-your_openai_api_key_here"
+      model: "gpt-3.5-turbo"
+      temperature: 0.1
+      max_tokens: 2048
+      timeout: 30
+    
+    # Azure OpenAI配置
+    azure:
+      api_base: "https://your-resource.openai.azure.com"
+      api_key: "your_azure_key"
+      api_version: "2023-12-01-preview"
+      deployment_name: "gpt-35-turbo"
+      temperature: 0.1
+      max_tokens: 2048
+      timeout: 30
+    
+    # Ollama本地模型配置
+    ollama:
+      api_base: "http://localhost:11434"
+      model: "llama2"
+      temperature: 0.1
+      timeout: 60
+    
+    # 自定义LLM配置
+    custom:
+      api_base: "http://your-custom-llm-endpoint"
+      api_key: "your_custom_api_key"
+      model: "your_custom_model"
+      headers:
+        "Custom-Header": "value"
+      temperature: 0.1
+      timeout: 30
+
+# 安全检查配置
+safety:
+  enabled: true
+  # 敏感词文件路径（相对于配置文件）
+  sensitive_vocabulary_file: "sensitive_vocabulary"
+  # DFA算法配置
+  dfa:
+    case_sensitive: false  # 是否区分大小写
+    enable_fuzzy_match: true  # 是否启用模糊匹配
+
+# 意图识别配置
+intent:
+  confidence_threshold: 0.7
+  # 查询增强（仅在LLM启用时生效）
+  enhancement:
+    enabled: true
+    max_length: 500
+
+# 微服务配置
+microservice:
+  enabled: false  # 是否启用微服务模式
+  
+  # 服务注册配置
+  registry:
+    enabled: false  # 是否启用服务注册
+    main_service_url: "http://localhost:8002"  # 主服务地址
+    register_endpoint: "/microservices/register"  # 注册端点
+    unregister_endpoint: "/microservices/unregister"  # 注销端点
+    heartbeat_interval: 30  # 心跳间隔（秒）
+    
+  # 服务发现配置
+  discovery:
+    enabled: false  # 是否启用服务发现
+    consul_url: "http://localhost:8500"  # Consul地址
+    service_name: "intent-recognition"  # 服务名称
+    health_check_url: "/health"  # 健康检查端点
+    
+  # 负载均衡配置
+  load_balancer:
+    enabled: false  # 是否启用负载均衡
+    strategy: "round_robin"  # 负载均衡策略: round_robin, random, least_connections
+    max_instances: 3  # 最大实例数
+
+# 缓存配置
+cache:
+  enabled: true
+  type: "memory"  # memory, redis
+  ttl: 3600  # 缓存TTL（秒）
+  max_size: 1000  # 最大缓存条目数
+  
+  # Redis配置（当type为redis时）
+  redis:
+    host: "localhost"
+    port: 6379
+    db: 0
+    password: ""
+    timeout: 5
+
+# 性能配置
+performance:
+  max_concurrent_requests: 100  # 最大并发请求数
+  request_timeout: 30  # 请求超时时间（秒）
+  enable_metrics: true  # 是否启用性能指标
+  
+  # 限流配置
+  rate_limit:
+    enabled: false  # 是否启用限流
+    requests_per_minute: 60  # 每分钟最大请求数
+    burst_size: 10  # 突发请求大小
+
+# API配置
+api:
+  # CORS配置
+  cors:
+    enabled: true
+    origins: ["*"]  # 允许的源，生产环境建议指定具体域名
+    methods: ["GET", "POST", "PUT", "DELETE"]  # 允许的方法
+    headers: ["*"]  # 允许的头部
+    
+  # API文档配置
+  docs:
+    enabled: true
+    title: "意图识别服务 API"
+    description: "提供查询意图识别、安全检查和查询增强功能"
+    version: "1.0.0"
+    
+# 监控配置
+monitoring:
+  # 健康检查配置
+  health_check:
+    enabled: true
+    interval: 30  # 检查间隔（秒）
+    timeout: 5  # 检查超时（秒）
+    
+  # 指标收集配置
+  metrics:
+    enabled: true
+    endpoint: "/metrics"  # 指标端点
+    include_system_metrics: true  # 是否包含系统指标
+    
+  # 日志配置
+  logging:
+    access_log: true  # 是否记录访问日志
+    error_log: true  # 是否记录错误日志
+    slow_query_threshold: 1.0  # 慢查询阈值（秒）
+    
+  # 告警配置
+  alerts:
+    enabled: false
+    webhook_url: ""  # 告警Webhook地址
+    error_rate_threshold: 0.05  # 错误率阈值
+    response_time_threshold: 2.0  # 响应时间阈值（秒）
+
+# 环境变量覆盖说明：
+# 以下环境变量可以覆盖配置文件中的设置：
+# INTENT_HOST - 服务主机
+# INTENT_PORT - 服务端口
+# INTENT_LLM_ENABLED - 是否启用LLM
+# INTENT_LLM_PROVIDER - LLM提供商
+# INTENT_OPENAI_API_BASE - OpenAI API地址
+# INTENT_OPENAI_API_KEY - OpenAI API密钥
+# INTENT_OPENAI_MODEL - OpenAI模型名称
+# INTENT_MICROSERVICE_ENABLED - 是否启用微服务模式
+# INTENT_CACHE_ENABLED - 是否启用缓存
+# INTENT_SAFETY_ENABLED - 是否启用安全检查

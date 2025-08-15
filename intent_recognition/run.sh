@@ -13,10 +13,10 @@ fi
 
 # 检查依赖
 echo "📦 检查依赖..."
-python3 -c "import fastapi, uvicorn, pydantic" 2>/dev/null
+python3 -c "import fastapi, uvicorn, pydantic, yaml" 2>/dev/null
 if [ $? -ne 0 ]; then
     echo "⚠️ 缺少依赖，正在安装..."
-    pip install fastapi uvicorn pydantic
+    pip install fastapi uvicorn pydantic pyyaml
 fi
 
 # 启动服务
@@ -28,4 +28,4 @@ echo ""
 echo "⚡ 按 Ctrl+C 停止服务"
 echo "================================"
 
-python3 simple_start.py
+python3 main.py "$@"
