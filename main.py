@@ -12,7 +12,7 @@ from initialize import create_app
 from routers import (
     query_router, document_router, knowledge_base_router,
     knowledge_graph_router, system_router, intent_recogition_router,
-    cache_management_router
+    cache_management_router, qa_router
 )
 
 # 创建应用实例
@@ -26,6 +26,7 @@ app.include_router(knowledge_graph_router, tags=["知识图谱"])
 app.include_router(system_router, tags=["系统管理"])
 app.include_router(intent_recogition_router, tags=["意图识别"])
 app.include_router(cache_management_router, tags=["缓存管理"])
+app.include_router(qa_router, tags=["问答系统"])
 
 
 # 全局异常处理器

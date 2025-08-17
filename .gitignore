@@ -134,7 +134,7 @@ test_kb/
 .vscode/
 .idea/
 examples/reference_project/*
-
+Q&A_Base/*
 # 临时文件
 *.tmp
 *.temp

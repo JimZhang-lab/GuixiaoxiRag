@@ -22,12 +22,12 @@ def parse_arguments():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例用法:
-  python strat.py                           # 使用默认配置启动
-  python strat.py --host 127.0.0.1 --port 8003  # 自定义主机和端口
-  python strat.py --debug --reload          # 开启调试模式和热重载
-  python strat.py --workers 4               # 设置工作进程数
-  python strat.py --config-only             # 仅检查配置不启动服务
-  python strat.py --env-file .env.prod      # 使用指定的环境文件
+  python start.py                           # 使用默认配置启动
+  python start.py --host 127.0.0.1 --port 8003  # 自定义主机和端口
+  python start.py --debug --reload          # 开启调试模式和热重载
+  python start.py --workers 4               # 设置工作进程数
+  python start.py --config-only             # 仅检查配置不启动服务
+  python start.py --env-file .env.prod      # 使用指定的环境文件
         """
     )
 
@@ -217,12 +217,12 @@ def show_quick_help():
     print("🎯 GuiXiaoXiRag 服务器启动器 - 快速帮助")
     print("=" * 50)
     print("常用命令:")
-    print("  python strat.py                    # 默认启动")
-    print("  python strat.py --help             # 显示完整帮助")
-    print("  python strat.py --version          # 显示版本信息")
-    print("  python strat.py --config-only      # 仅检查配置")
-    print("  python strat.py --debug --reload   # 开发模式")
-    print("  python strat.py --port 8003        # 自定义端口")
+    print("  python start.py                    # 默认启动")
+    print("  python start.py --help             # 显示完整帮助")
+    print("  python start.py --version          # 显示版本信息")
+    print("  python start.py --config-only      # 仅检查配置")
+    print("  python start.py --debug --reload   # 开发模式")
+    print("  python start.py --port 8003        # 自定义端口")
     print()
     print("更多选项请使用 --help 查看")
 

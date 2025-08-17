@@ -1,31 +1,22 @@
 """
-向量化问答对存储系统
+优化的问答系统
 
-专注于向量化存储和检索功能的精简实现
+基于RAG架构的高效问答对存储和检索系统
 """
 
-from .vectorized_qa_core import VectorizedQAStorage, QAPair, SearchResult
-from .embedding_client import EmbeddingClient, MockEmbeddingClient, create_embedding_client
-from .qa_manager import QAManager
+from .optimized_qa_manager import OptimizedQAManager
+from .qa_vector_storage import QAVectorStorage, QAPair
 
-__version__ = "1.0.0"
-__author__ = "Vectorized QA Team"
-__description__ = "向量化问答对存储和检索系统"
+__version__ = "2.0.0"
+__author__ = "GuiXiaoXiRag Team"
+__description__ = "基于RAG架构的优化问答系统"
 
 __all__ = [
-    # 核心存储
-    "VectorizedQAStorage",
-    "QAPair", 
-    "SearchResult",
-    
-    # Embedding客户端
-    "EmbeddingClient",
-    "MockEmbeddingClient",
-    "create_embedding_client",
-    
-    # 高级管理器
-    "QAManager",
-    
+    # 优化的管理器和存储
+    "OptimizedQAManager",
+    "QAVectorStorage",
+    "QAPair",
+
     # 版本信息
     "__version__",
     "__author__",

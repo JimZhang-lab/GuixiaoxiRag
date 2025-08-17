@@ -27,6 +27,7 @@ GuiXiaoXiRag 是一个基于 FastAPI 的智能知识问答系统，集成了知�
 - **文档管理**: 支持多种格式文档的上传、处理和索引
 - **意图识别**: 智能分析查询意图和安全级别
 - **多知识库**: 支持创建和管理多个独立的知识库
+- **问答系统**: 基于RAG架构的高精度问答系统，支持0.98相似度阈值匹配
 
 ### 🛠️ 技术特性
 - **模块化架构**: 清晰的分层设计，易于维护和扩展
@@ -73,7 +74,8 @@ GuiXiaoXiRag/
 ├── core/                  # 核心算法
 │   ├── rag/              # RAG相关算法
 │   ├── intent_recognition/ # 意图识别
-│   └── quick_qa_base/    # 快速问答基础
+│   ├── quick_qa_base/    # 优化的问答系统（基于RAG架构）
+│   └── common/           # 通用组件（LLM客户端等）
 ├── common/                # 公共组件
 │   ├── config.py         # 配置管理
 │   ├── utils.py          # 工具函数
@@ -104,11 +106,16 @@ GuiXiaoXiRag/
 1. **克隆项目**
 ```bash
 git clone <repository-url>
-cd server_new
+cd <repository>
 ```
 
 2. **安装依赖**
 ```bash
+unzip textract-16.5.zip
+cd textract-16.5
+pip install .
+
+cd ../
 pip install -r requirements.txt
 ```
 
@@ -124,6 +131,55 @@ nano .env
 4. **启动服务**
 ```bash
 python main.py
+
+# 或者
+python start.py
+```
+
+-- **start.py 启动配置**:
+```bash
+GuiXiaoXiRag 服务器启动脚本
+
+options:
+  -h, --help            show this help message and exit
+
+服务器配置:
+  --host HOST           服务器主机地址 (默认: 0.0.0.0)
+  --port PORT           服务器端口 (默认: 8002)
+  --workers WORKERS     工作进程数 (默认: 1)
+  --debug               启用调试模式
+  --reload              启用热重载 (开发模式)
+
+配置选项:
+  --env-file ENV_FILE   指定环境配置文件路径
+  --working-dir WORKING_DIR
+                        知识库工作目录
+  --log-level {DEBUG,INFO,WARNING,ERROR}
+                        日志级别
+
+模型配置:
+  --llm-api-base LLM_API_BASE
+                        LLM API 基础URL
+  --llm-model LLM_MODEL
+                        LLM 模型名称
+  --embedding-api-base EMBEDDING_API_BASE
+                        Embedding API 基础URL
+  --embedding-model EMBEDDING_MODEL
+                        Embedding 模型名称
+
+操作选项:
+  --config-only         仅检查配置，不启动服务器
+  --skip-deps-check     跳过依赖检查
+  --skip-env-check      跳过环境检查
+  --version             显示版本信息
+
+示例用法:
+  python start.py                           # 使用默认配置启动
+  python start.py --host 127.0.0.1 --port 8003  # 自定义主机和端口
+  python start.py --debug --reload          # 开启调试模式和热重载
+  python start.py --workers 4               # 设置工作进程数
+  python start.py --config-only             # 仅检查配置不启动服务
+  python start.py --env-file .env.prod      # 使用指定的环境文件
 ```
 
 5. **验证安装**
@@ -224,6 +280,46 @@ response = requests.post("http://localhost:8002/api/v1/knowledge-graph", json={
 })
 ```
 
+### 问答系统使用
+
+```python
+# 问答系统健康检查
+response = requests.get("http://localhost:8002/api/v1/qa/health")
+print(response.json())
+
+# 创建问答对
+response = requests.post("http://localhost:8002/api/v1/qa/pairs", json={
+    "question": "什么是人工智能？",
+    "answer": "人工智能是计算机科学的一个分支，旨在创建能够执行通常需要人类智能的任务的系统。",
+    "category": "ai",
+    "confidence": 0.95,
+    "keywords": ["人工智能", "AI"],
+    "source": "manual"
+})
+
+# 问答查询（高精度匹配，相似度阈值0.98）
+response = requests.post("http://localhost:8002/api/v1/qa/query", json={
+    "question": "AI是什么？",
+    "top_k": 3,
+    "min_similarity": 0.98
+})
+
+# 批量查询
+response = requests.post("http://localhost:8002/api/v1/qa/query/batch", json={
+    "questions": [
+        "什么是机器学习？",
+        "深度学习的应用有哪些？",
+        "如何开始学习AI？"
+    ],
+    "top_k": 2,
+    "parallel": True
+})
+
+# 获取问答统计信息
+response = requests.get("http://localhost:8002/api/v1/qa/statistics")
+print(response.json())
+```
+
 ## API 文档
 
 ### 在线文档
@@ -248,6 +344,10 @@ response = requests.post("http://localhost:8002/api/v1/knowledge-graph", json={
 | 知识库 | `/api/v1/knowledge-bases` | POST | 创建知识库 |
 | 图谱 | `/api/v1/knowledge-graph` | POST | 获取图谱数据 |
 | 图谱 | `/api/v1/knowledge-graph/stats` | GET | 图谱统计 |
+| 问答 | `/api/v1/qa/health` | GET | 问答系统健康检查 |
+| 问答 | `/api/v1/qa/pairs` | POST | 创建问答对 |
+| 问答 | `/api/v1/qa/query` | POST | 问答查询 |
+| 问答 | `/api/v1/qa/statistics` | GET | 问答统计 |
 
 ## 开发指南
 
@@ -417,6 +517,9 @@ curl -X GET http://localhost:8002/api/v1/health
 - 新增意图识别和安全检查
 - 优化性能和缓存机制
 - 完善错误处理和日志记录
+- **新增优化的问答系统**: 基于RAG架构，支持0.98高精度相似度匹配
+- **统一embedding配置**: 使用core.common.llm_client统一管理embedding服务
+- **向量化存储优化**: 使用NanoVectorDB进行高效向量存储和检索
 
 ### v1.x.x
 - 基础功能实现
@@ -485,6 +588,13 @@ EMBEDDING_ENABLED=true
 EMBEDDING_PROVIDER="openai"
 EMBEDDING_DIM=2560
 EMBEDDING_TIMEOUT=30
+
+# ===================
+# 问答系统配置
+# ===================
+QA_SIMILARITY_THRESHOLD=0.98  # 高精度相似度阈值
+QA_MAX_RESULTS=10
+QA_STORAGE_DIR="./Q&A_Base"
 
 # ===================
 # 知识库配置

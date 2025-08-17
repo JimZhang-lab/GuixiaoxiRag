@@ -11,6 +11,7 @@ from .system_router import router as system_router
 from .knowledge_base_router import router as knowledge_base_router
 from .intent_recogition_router import router as intent_recogition_router
 from .cache_management_router import router as cache_management_router
+from .qa_router import router as qa_router
 
 # 导出所有路由器
 __all__ = [
@@ -20,5 +21,6 @@ __all__ = [
     "system_router",
     "knowledge_base_router",
     "intent_recogition_router",
-    "cache_management_router"
+    "cache_management_router",
+    "qa_router"
 ]
