@@ -1,0 +1,122 @@
+# 非法关键词库
+# 格式：每行一个关键词，以#开头的行为注释
+
+# 赌博相关
+赌博
+赌场
+赌钱
+赌注
+博彩
+彩票作弊
+赌球
+赌马
+网络赌博
+地下赌场
+赌博网站
+赌博平台
+赌博技巧
+gambling
+casino
+betting
+poker
+blackjack
+
+# 毒品相关
+毒品
+吸毒
+贩毒
+制毒
+海洛因
+可卡因
+冰毒
+摇头丸
+大麻
+鸦片
+吗啡
+芬太尼
+毒品交易
+毒品制作
+drugs
+cocaine
+heroin
+marijuana
+methamphetamine
+
+# 色情相关
+色情
+黄色
+淫秽
+性交易
+卖淫
+嫖娼
+色情网站
+成人内容
+性服务
+色情视频
+裸体
+性爱
+裸聊
+pornography
+adult content
+sexual services
+prostitution
+
+# 暴力相关
+暴力
+杀人
+谋杀
+自杀
+恐怖主义
+爆炸
+枪支
+武器
+伤害他人
+暴力犯罪
+恐怖袭击
+自残
+虐待
+violence
+murder
+terrorism
+weapons
+suicide
+
+# 诈骗相关
+诈骗
+欺诈
+骗钱
+传销
+非法集资
+洗钱
+假币
+信用卡诈骗
+网络诈骗
+电信诈骗
+金融诈骗
+敲诈勒索
+fraud
+scam
+money laundering
+pyramid scheme
+
+# 非法贷款
+裸贷
+校园贷
+套路贷
+高利贷
+砍头息
+黑贷
+暴力催收
+软暴力
+非法放贷
+非法讨债
+
+# 其他非法内容
+制作炸弹
+如何制爆
+买枪
+如何买枪
+非法武器
+爆炸物制作
+恐怖活动
+极端主义

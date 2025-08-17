@@ -1,0 +1,128 @@
+[
+  {
+    "test_name": "根端点",
+    "success": true,
+    "message": "根端点响应正常",
+    "timestamp": 1755408106.0448644,
+    "data": {
+      "service": "GuiXiaoXiRag FastAPI Service",
+      "version": "1.0.0",
+      "status": "running",
+      "docs": "/docs",
+      "redoc": "/redoc",
+      "health": "/api/v1/health"
+    }
+  },
+  {
+    "test_name": "健康检查",
+    "success": true,
+    "message": "服务健康状态正常",
+    "timestamp": 1755408106.0466292,
+    "data": {
+      "status": "healthy",
+      "timestamp": "2025-08-17 13:21:46",
+      "system": {
+        "service_name": "GuiXiaoXiRag",
+        "version": "2.0.0",
+        "status": "healthy",
+        "initialized": true,
+        "working_dir": "./knowledgeBase/default",
+        "uptime": 20.075922966003418,
+        "performance": null,
+        "cache_info": null
+      },
+      "dependencies": null
+    }
+  },
+  {
+    "test_name": "查询API-1",
+    "success": true,
+    "message": "查询成功: 什么是人工智能？...",
+    "timestamp": 1755408106.192437,
+    "data": null
+  },
+  {
+    "test_name": "查询API-2",
+    "success": true,
+    "message": "查询成功: 机器学习的基本概念...",
+    "timestamp": 1755408106.2740514,
+    "data": null
+  },
+  {
+    "test_name": "查询API-3",
+    "success": true,
+    "message": "查询成功: 深度学习算法...",
+    "timestamp": 1755408106.3595684,
+    "data": null
+  },
+  {
+    "test_name": "查询API-4",
+    "success": true,
+    "message": "查询成功: 神经网络...",
+    "timestamp": 1755408106.3618023,
+    "data": null
+  },
+  {
+    "test_name": "查询模式-local",
+    "success": true,
+    "message": "local模式查询成功",
+    "timestamp": 1755408106.4473822,
+    "data": null
+  },
+  {
+    "test_name": "查询模式-global",
+    "success": true,
+    "message": "global模式查询成功",
+    "timestamp": 1755408112.6661136,
+    "data": null
+  },
+  {
+    "test_name": "查询模式-hybrid",
+    "success": true,
+    "message": "hybrid模式查询成功",
+    "timestamp": 1755408112.7342558,
+    "data": null
+  },
+  {
+    "test_name": "查询模式-naive",
+    "success": true,
+    "message": "naive模式查询成功",
+    "timestamp": 1755408112.7365873,
+    "data": null
+  },
+  {
+    "test_name": "查询模式-mix",
+    "success": true,
+    "message": "mix模式查询成功",
+    "timestamp": 1755408112.8017519,
+    "data": null
+  },
+  {
+    "test_name": "查询模式-bypass",
+    "success": true,
+    "message": "bypass模式查询成功",
+    "timestamp": 1755408117.8428555,
+    "data": null
+  },
+  {
+    "test_name": "知识库列表",
+    "success": true,
+    "message": "获取到 5 个知识库",
+    "timestamp": 1755408117.9290328,
+    "data": null
+  },
+  {
+    "test_name": "知识图谱统计",
+    "success": true,
+    "message": "节点: 3, 边: 2",
+    "timestamp": 1755408117.9312885,
+    "data": null
+  },
+  {
+    "test_name": "系统状态",
+    "success": true,
+    "message": "系统状态获取成功",
+    "timestamp": 1755408117.9329255,
+    "data": null
+  }
+]
