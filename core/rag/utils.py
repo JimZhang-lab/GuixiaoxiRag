@@ -208,17 +208,18 @@ def setup_logger(
         )
 
         try:
-            # Add file handler
+            # Add file handler with delay to avoid file locking issues
             file_handler = logging.handlers.RotatingFileHandler(
                 filename=log_file_path,
                 maxBytes=log_max_bytes,
                 backupCount=log_backup_count,
                 encoding="utf-8",
+                delay=True  # 延迟创建文件，避免启动时的文件锁定问题
             )
             file_handler.setFormatter(detailed_formatter)
             file_handler.setLevel(level)
             logger_instance.addHandler(file_handler)
-        except PermissionError as e:
+        except (PermissionError, OSError) as e:
             logger.warning(f"Could not create log file at {log_file_path}: {str(e)}")
             logger.warning("Continuing with console logging only")
 

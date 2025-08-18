@@ -83,8 +83,8 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         if not self._check_rate_limit(rate_key, limit_per_min):
             self.logger.warning(f"实体 {rate_key} 触发速率限制 (tier={tier}, IP={client_ip})")
             raise HTTPException(status_code=429, detail="请求过于频繁")
-        # 最小间隔检查
-        if self.min_interval_per_user > 0:
+        # 最小间隔检查（跳过文档相关路径）
+        if self.min_interval_per_user > 0 and not self._is_docs_path(request.url.path):
             last_ts = self.last_request_time.get(rate_key, 0.0)
             now = time.time()
             if now - last_ts < self.min_interval_per_user:
@@ -205,6 +205,19 @@ class SecurityMiddleware(BaseHTTPMiddleware):
 
     def _get_rate_limit_for_tier(self, tier: str) -> int:
         return self.rate_limit_tiers.get(tier, self.rate_limit_tiers.get(self.rate_limit_default_tier, self.rate_limit_requests))
+
+    def _is_docs_path(self, path: str) -> bool:
+        """检查是否为文档相关路径，这些路径跳过最小间隔限制"""
+        docs_paths = [
+            "/docs",
+            "/redoc",
+            "/openapi.json",
+            "/favicon.ico",
+            "/static/",
+            "/_next/",  # Next.js 静态资源
+            "/assets/",  # 通用静态资源
+        ]
+        return any(path.startswith(doc_path) for doc_path in docs_paths)
 
     
     def _check_suspicious_activity(self, request: Request, client_ip: str):

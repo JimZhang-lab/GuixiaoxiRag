@@ -50,13 +50,20 @@ def setup_logging(
     else:
         file_path = os.path.join(settings.log_dir, "guixiaoxirag_service.log")
     
-    # 使用RotatingFileHandler避免日志文件过大
-    file_handler = logging.handlers.RotatingFileHandler(
-        file_path,
-        maxBytes=10*1024*1024,  # 10MB
-        backupCount=5,
-        encoding='utf-8'
-    )
+    # 使用RotatingFileHandler避免日志文件过大，添加延迟参数避免文件锁定
+    try:
+        file_handler = logging.handlers.RotatingFileHandler(
+            file_path,
+            maxBytes=10*1024*1024,  # 10MB
+            backupCount=5,
+            encoding='utf-8',
+            delay=True  # 延迟创建文件，避免启动时的文件锁定问题
+        )
+    except (OSError, PermissionError) as e:
+        # 如果文件被锁定，使用控制台日志
+        print(f"警告: 无法创建日志文件 {file_path}: {e}")
+        print("将仅使用控制台日志")
+        return logger
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
     
