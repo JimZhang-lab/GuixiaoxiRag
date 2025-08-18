@@ -94,14 +94,14 @@ async def create_qa_pairs_batch(request: QAPairBatchCreate):
         raise HTTPException(status_code=500, detail=f"批量创建问答对失败: {str(e)}")
 
 
-@router.post("/query", response_model=QAQueryResponse, summary="问答查询")
+@router.post("/query", response_model=QAQueryResponse, summary="问答查询", description="默认大模型请求超时 240 秒，可通过 .env 的 LLM_TIMEOUT 配置调整")
 async def query_qa(request: QAQueryRequest):
     """
     执行问答查询
-    
+
     Args:
         request: 查询请求
-        
+
     Returns:
         QAQueryResponse: 查询结果
     """
@@ -113,14 +113,14 @@ async def query_qa(request: QAQueryRequest):
         raise HTTPException(status_code=500, detail=f"问答查询失败: {str(e)}")
 
 
-@router.post("/query/batch", response_model=QABatchQueryResponse, summary="批量问答查询")
+@router.post("/query/batch", response_model=QABatchQueryResponse, summary="批量问答查询", description="单条 LLM 请求默认超时 240 秒；批量接口可通过 body.timeout 控制聚合等待超时")
 async def batch_query_qa(request: QABatchQueryRequest):
     """
     批量执行问答查询
-    
+
     Args:
         request: 批量查询请求
-        
+
     Returns:
         QABatchQueryResponse: 批量查询结果
     """
@@ -249,7 +249,7 @@ async def list_qa_pairs(
 async def get_qa_statistics():
     """
     获取问答系统的统计信息
-    
+
     Returns:
         BaseResponse: 统计信息
     """
@@ -259,6 +259,33 @@ async def get_qa_statistics():
     except Exception as e:
         logger.error(f"Get QA statistics error: {e}")
         raise HTTPException(status_code=500, detail=f"获取统计信息失败: {str(e)}")
+
+
+@router.get("/categories", response_model=BaseResponse, summary="获取问答分类列表")
+async def get_qa_categories():
+    """
+    获取所有问答分类列表
+
+    Returns:
+        BaseResponse: 分类列表和统计信息
+    """
+    try:
+        handler = await get_qa_api_handler()
+        categories = handler.qa_manager.get_categories()
+        category_stats = handler.qa_manager.get_category_stats()
+
+        return BaseResponse(
+            success=True,
+            message=f"获取分类列表成功，共 {len(categories)} 个分类",
+            data={
+                "categories": categories,
+                "category_stats": category_stats,
+                "total_categories": len(categories)
+            }
+        )
+    except Exception as e:
+        logger.error(f"Get QA categories error: {e}")
+        raise HTTPException(status_code=500, detail=f"获取分类列表失败: {str(e)}")
 
 
 @router.post("/import", response_model=BaseResponse, summary="导入问答对")
@@ -307,10 +334,38 @@ async def import_qa_pairs(
                         message="JSON文件导入失败",
                         error_code="IMPORT_FAILED"
                     )
+            elif file_type.lower() == "csv":
+                # 导入CSV文件
+                success = await handler.qa_handler.import_from_csv(temp_file_path)
+                if success:
+                    return BaseResponse(
+                        success=True,
+                        message="CSV文件导入成功"
+                    )
+                else:
+                    return BaseResponse(
+                        success=False,
+                        message="CSV文件导入失败",
+                        error_code="IMPORT_FAILED"
+                    )
+            elif file_type.lower() == "xlsx":
+                # 导入Excel文件
+                success = await handler.qa_handler.import_from_excel(temp_file_path)
+                if success:
+                    return BaseResponse(
+                        success=True,
+                        message="Excel文件导入成功"
+                    )
+                else:
+                    return BaseResponse(
+                        success=False,
+                        message="Excel文件导入失败",
+                        error_code="IMPORT_FAILED"
+                    )
             else:
                 return BaseResponse(
                     success=False,
-                    message=f"暂不支持 {file_type} 格式的文件导入",
+                    message=f"暂不支持 {file_type} 格式的文件导入，支持的格式: json, csv, xlsx",
                     error_code="UNSUPPORTED_FORMAT"
                 )
         finally:

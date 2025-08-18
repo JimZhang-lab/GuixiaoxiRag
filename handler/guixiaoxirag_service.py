@@ -342,7 +342,7 @@ class GuiXiaoXiRagService:
                 f"查询成功 - 知识库: {kb_name}, 语言: {self._current_language}, "
                 f"模式: {mode}, 耗时: {query_time:.2f}s"
             )
-
+            # 注意：result 可能是 str 或异步迭代器，保持原样返回，由 API 层填充 response_time 字段
             return result
 
         except Exception as e:

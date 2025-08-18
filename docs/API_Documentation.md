@@ -7,11 +7,25 @@ GuiXiaoXiRag 是一个基于 FastAPI 的智能知识问答系统，集成了知�
 ## 服务信息
 
 - **服务名称**: GuiXiaoXiRag FastAPI Service
-- **版本**: 2.0.0
+- **版本**: 0.1.0
 - **默认端口**: 8002
 - **API 基础路径**: `/api/v1`
 - **文档地址**: `/docs` (Swagger UI)
 - **ReDoc 地址**: `/redoc`
+
+## 网关对接（必读）
+
+- 建议所有通过网关转发的请求统一携带：X-User-Id、X-Client-Id、X-User-Tier
+- 算法端仅信任 trusted_proxy_ips 中的代理注入的 X-Forwarded-For/X-Real-IP
+- 超时：默认 LLM/Embedding/Rerank 请求超时均为 240s，可通过 .env 配置 LLM_TIMEOUT/EMBEDDING_TIMEOUT/RERANK_TIMEOUT
+
+示例（可复用的 cURL 头部别名）：
+```bash
+API_BASE="http://localhost:8002/api/v1"
+CURL_JSON="curl -sS -H 'Accept: application/json' -H 'Content-Type: application/json' \
+  -H 'X-User-Id: user_12345' -H 'X-Client-Id: web-session-abc' -H 'X-User-Tier: pro'"
+```
+
 
 ## 认证方式
 
@@ -50,7 +64,7 @@ GuiXiaoXiRag 是一个基于 FastAPI 的智能知识问答系统，集成了知�
     "timestamp": "2024-01-01T12:00:00Z",
     "system": {
         "service_name": "GuiXiaoXiRag FastAPI Service",
-        "version": "2.0.0",
+        "version": "0.1.0",
         "uptime": 3600
     },
     "dependencies": {
@@ -73,7 +87,7 @@ GuiXiaoXiRag 是一个基于 FastAPI 的智能知识问答系统，集成了知�
     "success": true,
     "data": {
         "service_name": "GuiXiaoXiRag FastAPI Service",
-        "version": "2.0.0",
+        "version": "0.1.0",
         "status": "running",
         "initialized": true,
         "working_dir": "./knowledgeBase/default",
@@ -705,7 +719,7 @@ async function getKnowledgeBases() {
 
 ## 版本更新日志
 
-### v2.0.0
+### v0.1.0
 - 重构API架构，提供更清晰的模块化设计
 - 增强查询功能，支持多种查询模式
 - 完善知识库管理功能

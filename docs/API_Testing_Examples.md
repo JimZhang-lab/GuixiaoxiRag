@@ -20,6 +20,33 @@ API_BASE="http://localhost:8002/api/v1"
 # 4. JavaScript fetch API
 ```
 
+## 网关对接与标准请求头
+
+在通过 Java 网关转发到算法服务时，请统一携带如下头部以实现“用户优先”的限流与分层：
+
+- X-User-Id: 稳定用户标识（必）
+- X-Client-Id: 客户端/会话标识（建议）
+- X-User-Tier: 用户套餐等级（free/pro/enterprise…）
+
+Shell 示例（可作为基础别名复用）：
+```bash
+API_BASE="http://localhost:8002/api/v1"
+CURL_JSON="curl -sS -H 'Accept: application/json' -H 'Content-Type: application/json' \
+  -H 'X-User-Id: user_12345' -H 'X-Client-Id: web-session-abc' -H 'X-User-Tier: pro'"
+```
+# 也可仅定义标准网关头（适用于 multipart/form-data 等非 JSON 请求）
+GATEWAY_HDRS=(
+  -H 'X-User-Id: user_12345'
+  -H 'X-Client-Id: web-session-abc'
+  -H 'X-User-Tier: pro'
+)
+
+
+说明：
+- 若有受信任代理（trusted_proxy_ips），可由网关注入 X-Forwarded-For / X-Real-IP；算法端仅对受信任代理来源读取这些头部
+- 算法端默认大模型请求超时 240s，可通过 .env 配置 LLM_TIMEOUT/EMBEDDING_TIMEOUT/RERANK_TIMEOUT
+
+
 ### 启动服务
 
 ```bash
@@ -38,9 +65,8 @@ python main.py
 ### 1.1 健康检查测试
 
 ```bash
-# curl 测试
-curl -X GET "http://localhost:8002/api/v1/health" \
-  -H "accept: application/json"
+# curl 测试（网关头）
+$CURL_JSON -X GET "$API_BASE/health"
 ```
 
 ```python
@@ -59,7 +85,7 @@ print(f"响应: {response.json()}")
     "timestamp": "2024-01-01T12:00:00Z",
     "system": {
         "service_name": "GuiXiaoXiRag FastAPI Service",
-        "version": "2.0.0",
+        "version": "0.1.0",
         "uptime": 3600
     },
     "dependencies": {
@@ -73,15 +99,63 @@ print(f"响应: {response.json()}")
 ### 1.2 系统状态测试
 
 ```bash
-curl -X GET "http://localhost:8002/api/v1/system/status" \
-  -H "accept: application/json"
+$CURL_JSON -X GET "$API_BASE/system/status"
 ```
 
 ### 1.3 性能指标测试
 
 ```bash
-curl -X GET "http://localhost:8002/api/v1/metrics" \
-  -H "accept: application/json"
+$CURL_JSON -X GET "$API_BASE/metrics"
+
+# 通过网关头部的 cURL 示例
+
+```bash
+# 基础智能查询（hybrid）
+$CURL_JSON -X POST "$API_BASE/query" -d '{
+  "query": "什么是人工智能？",
+  "mode": "hybrid",
+  "top_k": 10
+}'
+
+# 本地模式查询（local）
+$CURL_JSON -X POST "$API_BASE/query" -d '{
+  "query": "机器学习的基本概念",
+  "mode": "local",
+  "top_k": 5
+}'
+
+# 全局模式 + 质量优先（global + quality）
+$CURL_JSON -X POST "$API_BASE/query" -d '{
+  "query": "深度学习算法",
+  "mode": "global",
+  "top_k": 15,
+  "performance_mode": "quality"
+}'
+
+# 批量查询（batch）
+$CURL_JSON -X POST "$API_BASE/query/batch" -d '{
+  "queries": ["什么是机器学习？", "深度学习的应用领域有哪些？", "如何选择合适的算法？"],
+  "mode": "hybrid",
+  "top_k": 10,
+  "parallel": true,
+  "timeout": 300
+}'
+
+# 问答查询（QA）
+$CURL_JSON -X POST "$API_BASE/qa/query" -d '{
+  "question": "什么是RAG？",
+  "top_k": 3,
+  "min_similarity": 0.85
+}'
+
+# 批量问答查询（QA batch）
+$CURL_JSON -X POST "$API_BASE/qa/query/batch" -d '{
+  "questions": ["什么是RAG？", "RAG的优势是什么？"],
+  "top_k": 3,
+  "min_similarity": 0.8
+}'
+```
+
 ```
 
 ## 2. 查询 API 测试
@@ -89,15 +163,12 @@ curl -X GET "http://localhost:8002/api/v1/metrics" \
 ### 2.1 基础查询测试
 
 ```bash
-# 简单查询
-curl -X POST "http://localhost:8002/api/v1/query" \
-  -H "accept: application/json" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "什么是人工智能？",
-    "mode": "hybrid",
-    "top_k": 10
-  }'
+# 基础 query（hybrid）
+$CURL_JSON -X POST "$API_BASE/query" -d '{
+  "query": "什么是人工智能？",
+  "mode": "hybrid",
+  "top_k": 10
+}'
 ```
 
 ```python
@@ -107,7 +178,7 @@ import json
 
 def test_query_api():
     url = "http://localhost:8002/api/v1/query"
-    
+
     test_cases = [
         {
             "name": "基础查询",
@@ -145,13 +216,13 @@ def test_query_api():
             }
         }
     ]
-    
+
     for test_case in test_cases:
         print(f"\n测试: {test_case['name']}")
         try:
             response = requests.post(url, json=test_case['data'])
             print(f"状态码: {response.status_code}")
-            
+
             if response.status_code == 200:
                 result = response.json()
                 print(f"成功: {result.get('success')}")
@@ -162,7 +233,7 @@ def test_query_api():
                     print(f"查询时间: {data.get('query_time')}秒")
             else:
                 print(f"错误: {response.text}")
-                
+
         except Exception as e:
             print(f"异常: {str(e)}")
 
@@ -173,30 +244,24 @@ test_query_api()
 ### 2.2 意图分析测试
 
 ```bash
-curl -X POST "http://localhost:8002/api/v1/query/analyze" \
-  -H "accept: application/json" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "如何学习机器学习？",
-    "context": {"domain": "education"},
-    "enable_enhancement": true,
-    "safety_check": true
-  }'
+$CURL_JSON -X POST "$API_BASE/query/analyze" -d '{
+  "query": "如何学习机器学习？",
+  "context": {"domain": "education"},
+  "enable_enhancement": true,
+  "safety_check": true
+}'
 ```
 
 ### 2.3 安全查询测试
 
 ```bash
-curl -X POST "http://localhost:8002/api/v1/query/safe" \
-  -H "accept: application/json" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "人工智能的发展历史",
-    "mode": "hybrid",
-    "enable_intent_analysis": true,
-    "enable_query_enhancement": true,
-    "safety_check": true
-  }'
+$CURL_JSON -X POST "$API_BASE/query/safe" -d '{
+  "query": "人工智能的发展历史",
+  "mode": "hybrid",
+  "enable_intent_analysis": true,
+  "enable_query_enhancement": true,
+  "safety_check": true
+}'
 ```
 
 ### 2.4 批量查询测试
@@ -204,7 +269,7 @@ curl -X POST "http://localhost:8002/api/v1/query/safe" \
 ```python
 def test_batch_query():
     url = "http://localhost:8002/api/v1/query/batch"
-    
+
     data = {
         "queries": [
             "什么是机器学习？",
@@ -218,10 +283,11 @@ def test_batch_query():
         "parallel": True,
         "timeout": 300
     }
-    
-    response = requests.post(url, json=data)
+
+    headers={"X-User-Id":"user_12345","X-Client-Id":"web-session-abc","X-User-Tier":"pro"}
+response = requests.post(url, json=data, headers=headers)
     print(f"批量查询状态码: {response.status_code}")
-    
+
     if response.status_code == 200:
         result = response.json()
         print(f"成功处理: {len(result.get('data', {}).get('results', []))} 个查询")
@@ -234,26 +300,23 @@ def test_batch_query():
 ### 3.1 插入文本测试
 
 ```bash
-curl -X POST "http://localhost:8002/api/v1/insert/text" \
-  -H "accept: application/json" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "text": "人工智能（Artificial Intelligence，AI）是计算机科学的一个分支，它企图了解智能的实质，并生产出一种新的能以人类智能相似的方式做出反应的智能机器。",
-    "knowledge_base": "test_kb",
-    "language": "中文"
-  }'
+$CURL_JSON -X POST "$API_BASE/insert/text" -d '{
+  "text": "人工智能（Artificial Intelligence，AI）是计算机科学的一个分支，它企图了解智能的实质，并生产出一种新的能以人类智能相似的方式做出反应的智能机器。",
+  "knowledge_base": "test_kb",
+  "language": "中文"
+}'
 ```
 
 ```python
 def test_insert_text():
     url = "http://localhost:8002/api/v1/insert/text"
-    
+
     test_texts = [
         "机器学习是人工智能的一个重要分支，它使计算机能够在没有明确编程的情况下学习。",
         "深度学习是机器学习的一个子集，它模仿人脑的工作方式来处理数据。",
         "神经网络是深度学习的基础，由多个相互连接的节点组成。"
     ]
-    
+
     for i, text in enumerate(test_texts):
         data = {
             "text": text,
@@ -261,7 +324,7 @@ def test_insert_text():
             "knowledge_base": "test_kb",
             "language": "中文"
         }
-        
+
         response = requests.post(url, json=data)
         print(f"插入文本 {i+1}: {response.status_code}")
         if response.status_code == 200:
@@ -275,7 +338,7 @@ def test_insert_text():
 ```python
 def test_batch_insert_texts():
     url = "http://localhost:8002/api/v1/insert/texts"
-    
+
     data = {
         "texts": [
             "自然语言处理（NLP）是人工智能的一个重要应用领域。",
@@ -286,10 +349,10 @@ def test_batch_insert_texts():
         "knowledge_base": "test_kb",
         "language": "中文"
     }
-    
+
     response = requests.post(url, json=data)
     print(f"批量插入状态码: {response.status_code}")
-    
+
     if response.status_code == 200:
         result = response.json()
         print(f"批量插入成功: {result.get('success')}")
@@ -301,32 +364,32 @@ def test_batch_insert_texts():
 ```python
 def test_file_upload():
     url = "http://localhost:8002/api/v1/insert/file"
-    
+
     # 创建测试文件
     test_content = """
     # 人工智能简介
-    
+
     人工智能（AI）是计算机科学的一个分支，旨在创建能够执行通常需要人类智能的任务的系统。
-    
+
     ## 主要领域
-    
+
     1. 机器学习
     2. 自然语言处理
     3. 计算机视觉
     4. 机器人学
-    
+
     ## 应用场景
-    
+
     - 语音识别
     - 图像识别
     - 推荐系统
     - 自动驾驶
     """
-    
+
     # 保存为临时文件
     with open("test_ai_intro.md", "w", encoding="utf-8") as f:
         f.write(test_content)
-    
+
     # 上传文件
     with open("test_ai_intro.md", "rb") as f:
         files = {"file": ("test_ai_intro.md", f, "text/markdown")}
@@ -335,15 +398,15 @@ def test_file_upload():
             "language": "中文",
             "extract_metadata": "true"
         }
-        
+
         response = requests.post(url, files=files, data=data)
         print(f"文件上传状态码: {response.status_code}")
-        
+
         if response.status_code == 200:
             result = response.json()
             print(f"上传成功: {result.get('success')}")
             print(f"文件信息: {result.get('data', {}).get('file_info')}")
-    
+
     # 清理临时文件
     import os
     os.remove("test_ai_intro.md")
@@ -354,8 +417,7 @@ def test_file_upload():
 ### 4.1 获取知识库列表
 
 ```bash
-curl -X GET "http://localhost:8002/api/v1/knowledge-bases" \
-  -H "accept: application/json"
+$CURL_JSON -X GET "$API_BASE/knowledge-bases"
 ```
 
 ### 4.2 创建知识库测试
@@ -363,7 +425,7 @@ curl -X GET "http://localhost:8002/api/v1/knowledge-bases" \
 ```python
 def test_create_knowledge_base():
     url = "http://localhost:8002/api/v1/knowledge-bases"
-    
+
     data = {
         "name": "test_ai_kb",
         "description": "人工智能测试知识库",
@@ -374,10 +436,10 @@ def test_create_knowledge_base():
             "enable_auto_update": True
         }
     }
-    
+
     response = requests.post(url, json=data)
     print(f"创建知识库状态码: {response.status_code}")
-    
+
     if response.status_code == 200:
         result = response.json()
         print(f"创建成功: {result.get('success')}")
@@ -391,15 +453,15 @@ def test_create_knowledge_base():
 ```python
 def test_switch_knowledge_base():
     url = "http://localhost:8002/api/v1/knowledge-bases/switch"
-    
+
     data = {
         "name": "test_ai_kb",
         "create_if_not_exists": True
     }
-    
+
     response = requests.post(url, json=data)
     print(f"切换知识库状态码: {response.status_code}")
-    
+
     if response.status_code == 200:
         result = response.json()
         print(f"切换成功: {result.get('success')}")
@@ -413,17 +475,17 @@ def test_switch_knowledge_base():
 ```python
 def test_knowledge_graph():
     url = "http://localhost:8002/api/v1/knowledge-graph"
-    
+
     data = {
         "node_label": "人工智能",
         "max_depth": 2,
         "max_nodes": 50,
         "include_metadata": True
     }
-    
+
     response = requests.post(url, json=data)
     print(f"获取图谱数据状态码: {response.status_code}")
-    
+
     if response.status_code == 200:
         result = response.json()
         if result.get('success'):
@@ -437,15 +499,13 @@ def test_knowledge_graph():
 ### 5.2 图谱统计信息测试
 
 ```bash
-curl -X GET "http://localhost:8002/api/v1/knowledge-graph/stats" \
-  -H "accept: application/json"
+$CURL_JSON -X GET "$API_BASE/knowledge-graph/stats"
 ```
 
 ### 5.3 图谱状态测试
 
 ```bash
-curl -X GET "http://localhost:8002/api/v1/knowledge-graph/status" \
-  -H "accept: application/json"
+$CURL_JSON -X GET "$API_BASE/knowledge-graph/status"
 ```
 
 ## 6. 意图识别 API 测试
@@ -455,24 +515,24 @@ curl -X GET "http://localhost:8002/api/v1/knowledge-graph/status" \
 ```python
 def test_intent_analysis():
     url = "http://localhost:8002/api/v1/intent/analyze"
-    
+
     test_queries = [
         "如何学习Python编程？",
         "今天天气怎么样？",
         "什么是机器学习？",
         "你好，请问你是谁？"
     ]
-    
+
     for query in test_queries:
         data = {
             "query": query,
             "context": {"domain": "general"}
         }
-        
+
         response = requests.post(url, json=data)
         print(f"\n查询: {query}")
         print(f"状态码: {response.status_code}")
-        
+
         if response.status_code == 200:
             result = response.json()
             print(f"意图类型: {result.get('intent_type')}")
@@ -485,23 +545,23 @@ def test_intent_analysis():
 ```python
 def test_safety_check():
     url = "http://localhost:8002/api/v1/intent/safety-check"
-    
+
     test_contents = [
         "如何制作蛋糕？",
         "学习编程的最佳方法",
         "人工智能的发展前景"
     ]
-    
+
     for content in test_contents:
         data = {
             "content": content,
             "check_type": "query"
         }
-        
+
         response = requests.post(url, json=data)
         print(f"\n内容: {content}")
         print(f"状态码: {response.status_code}")
-        
+
         if response.status_code == 200:
             result = response.json()
             print(f"安全级别: {result.get('safety_level')}")
@@ -513,8 +573,7 @@ def test_safety_check():
 ### 7.1 获取缓存统计
 
 ```bash
-curl -X GET "http://localhost:8002/api/v1/cache/stats" \
-  -H "accept: application/json"
+$CURL_JSON -X GET "$API_BASE/cache/stats"
 ```
 
 ### 7.2 清理缓存测试
@@ -525,16 +584,16 @@ def test_cache_management():
     stats_url = "http://localhost:8002/api/v1/cache/stats"
     response = requests.get(stats_url)
     print(f"缓存统计状态码: {response.status_code}")
-    
+
     if response.status_code == 200:
         stats = response.json()
         print(f"缓存统计: {stats.get('data')}")
-    
+
     # 清理特定缓存
     clear_url = "http://localhost:8002/api/v1/cache/clear/llm"
     response = requests.delete(clear_url)
     print(f"清理LLM缓存状态码: {response.status_code}")
-    
+
     # 清理所有缓存
     clear_all_url = "http://localhost:8002/api/v1/cache/clear"
     response = requests.delete(clear_all_url)
@@ -558,7 +617,7 @@ class APITester:
         self.api_base = f"{base_url}/api/v1"
         self.session = requests.Session()
         self.results = []
-    
+
     def log_result(self, test_name, success, message, data=None):
         result = {
             "test_name": test_name,
@@ -570,32 +629,32 @@ class APITester:
         self.results.append(result)
         status = "✅" if success else "❌"
         print(f"{status} {test_name}: {message}")
-    
+
     def run_all_tests(self):
         """运行所有测试"""
         print("开始运行 GuiXiaoXiRag API 综合测试...")
         print("=" * 50)
-        
+
         # 系统测试
         self.test_health_check()
         self.test_system_status()
-        
+
         # 查询测试
         self.test_basic_query()
         self.test_intent_analysis()
-        
+
         # 文档管理测试
         self.test_insert_text()
-        
+
         # 知识库测试
         self.test_knowledge_bases()
-        
+
         # 缓存测试
         self.test_cache_stats()
-        
+
         # 输出测试结果
         self.print_summary()
-    
+
     def test_health_check(self):
         try:
             response = self.session.get(f"{self.api_base}/health")
@@ -605,7 +664,7 @@ class APITester:
                 self.log_result("健康检查", False, f"状态码: {response.status_code}")
         except Exception as e:
             self.log_result("健康检查", False, f"请求失败: {str(e)}")
-    
+
     def test_system_status(self):
         try:
             response = self.session.get(f"{self.api_base}/system/status")
@@ -619,7 +678,7 @@ class APITester:
                 self.log_result("系统状态", False, f"状态码: {response.status_code}")
         except Exception as e:
             self.log_result("系统状态", False, f"请求失败: {str(e)}")
-    
+
     def test_basic_query(self):
         try:
             data = {
@@ -627,7 +686,8 @@ class APITester:
                 "mode": "hybrid",
                 "top_k": 10
             }
-            response = self.session.post(f"{self.api_base}/query", json=data)
+            headers = {"X-User-Id":"user_12345","X-Client-Id":"web-session-abc","X-User-Tier":"pro"}
+            response = self.session.post(f"{self.api_base}/query", json=data, headers=headers)
             if response.status_code == 200:
                 result = response.json()
                 if result.get("success"):
@@ -638,7 +698,7 @@ class APITester:
                 self.log_result("基础查询", False, f"状态码: {response.status_code}")
         except Exception as e:
             self.log_result("基础查询", False, f"请求失败: {str(e)}")
-    
+
     def test_intent_analysis(self):
         try:
             data = {
@@ -656,7 +716,7 @@ class APITester:
                 self.log_result("意图分析", False, f"状态码: {response.status_code}")
         except Exception as e:
             self.log_result("意图分析", False, f"请求失败: {str(e)}")
-    
+
     def test_insert_text(self):
         try:
             data = {
@@ -675,7 +735,7 @@ class APITester:
                 self.log_result("文本插入", False, f"状态码: {response.status_code}")
         except Exception as e:
             self.log_result("文本插入", False, f"请求失败: {str(e)}")
-    
+
     def test_knowledge_bases(self):
         try:
             response = self.session.get(f"{self.api_base}/knowledge-bases")
@@ -690,7 +750,7 @@ class APITester:
                 self.log_result("知识库列表", False, f"状态码: {response.status_code}")
         except Exception as e:
             self.log_result("知识库列表", False, f"请求失败: {str(e)}")
-    
+
     def test_cache_stats(self):
         try:
             response = self.session.get(f"{self.api_base}/cache/stats")
@@ -704,21 +764,21 @@ class APITester:
                 self.log_result("缓存统计", False, f"状态码: {response.status_code}")
         except Exception as e:
             self.log_result("缓存统计", False, f"请求失败: {str(e)}")
-    
+
     def print_summary(self):
         print("\n" + "=" * 50)
         print("测试结果汇总")
         print("=" * 50)
-        
+
         total_tests = len(self.results)
         successful_tests = sum(1 for r in self.results if r["success"])
         failed_tests = total_tests - successful_tests
-        
+
         print(f"总测试数: {total_tests}")
         print(f"成功: {successful_tests}")
         print(f"失败: {failed_tests}")
         print(f"成功率: {(successful_tests/total_tests)*100:.1f}%")
-        
+
         if failed_tests > 0:
             print("\n失败的测试:")
             for result in self.results:

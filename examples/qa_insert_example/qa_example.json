@@ -1,0 +1,138 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "description": "问答库导入示例数据",
+    "created_at": "2025-08-18",
+    "total_records": 15,
+    "default_category": "technology",
+    "encoding": "UTF-8"
+  },
+  "qa_pairs": [
+    {
+      "question": "什么是人工智能？",
+      "answer": "人工智能（Artificial Intelligence，AI）是指由机器展现出的智能行为，包括学习、推理、感知、理解、交流和在复杂环境中行动的能力。",
+      "category": "technology",
+      "confidence": 0.95,
+      "keywords": ["人工智能", "AI", "机器学习", "智能"],
+      "source": "技术百科"
+    },
+    {
+      "question": "机器学习和深度学习有什么区别？",
+      "answer": "机器学习是人工智能的一个分支，通过算法让计算机从数据中学习。深度学习是机器学习的一个子集，使用多层神经网络来模拟人脑的学习过程，能够处理更复杂的数据和任务。",
+      "category": "technology",
+      "confidence": 0.9,
+      "keywords": ["机器学习", "深度学习", "神经网络", "算法"],
+      "source": "技术文档"
+    },
+    {
+      "question": "如何开始学习编程？",
+      "answer": "学习编程的建议步骤：1）选择一门适合初学者的语言（如Python）；2）学习基础语法和概念；3）通过实际项目练习；4）阅读他人代码；5）参与开源项目；6）持续学习新技术。",
+      "category": "education",
+      "confidence": 0.85,
+      "keywords": ["编程", "学习", "Python", "初学者"],
+      "source": "教育指南"
+    },
+    {
+      "question": "什么是云计算？",
+      "answer": "云计算是一种通过互联网提供计算服务的模式，包括服务器、存储、数据库、网络、软件等资源。用户可以按需使用这些资源，无需购买和维护物理硬件。",
+      "category": "technology",
+      "confidence": 0.9,
+      "keywords": ["云计算", "互联网", "服务器", "存储"],
+      "source": "技术百科"
+    },
+    {
+      "question": "数据库的作用是什么？",
+      "answer": "数据库是用于存储、管理和检索数据的系统。它提供了数据的持久化存储、数据完整性保证、并发访问控制、数据安全性等功能，是现代应用系统的重要组成部分。",
+      "category": "technology",
+      "confidence": 0.88,
+      "keywords": ["数据库", "存储", "数据管理", "SQL"],
+      "source": "技术文档"
+    },
+    {
+      "question": "如何提高工作效率？",
+      "answer": "提高工作效率的方法：1）制定明确的目标和计划；2）使用时间管理技巧（如番茄工作法）；3）减少干扰和多任务处理；4）学习使用效率工具；5）保持良好的工作习惯；6）定期休息和放松。",
+      "category": "productivity",
+      "confidence": 0.8,
+      "keywords": ["工作效率", "时间管理", "番茄工作法", "目标"],
+      "source": "管理指南"
+    },
+    {
+      "question": "什么是API？",
+      "answer": "API（Application Programming Interface，应用程序编程接口）是一组定义了软件组件之间如何交互的规则和协议。它允许不同的应用程序或服务之间进行通信和数据交换。",
+      "category": "technology",
+      "confidence": 0.92,
+      "keywords": ["API", "接口", "编程", "通信"],
+      "source": "技术文档"
+    },
+    {
+      "question": "如何保护个人隐私？",
+      "answer": "保护个人隐私的建议：1）使用强密码和双因素认证；2）谨慎分享个人信息；3）定期检查隐私设置；4）使用VPN保护网络连接；5）及时更新软件和系统；6）了解数据使用政策。",
+      "category": "security",
+      "confidence": 0.85,
+      "keywords": ["隐私保护", "密码", "安全", "VPN"],
+      "source": "安全指南"
+    },
+    {
+      "question": "什么是区块链？",
+      "answer": "区块链是一种分布式账本技术，通过密码学方法将数据块按时间顺序链接起来，形成不可篡改的数据链。它具有去中心化、透明性、不可篡改等特点，广泛应用于加密货币、供应链管理等领域。",
+      "category": "technology",
+      "confidence": 0.9,
+      "keywords": ["区块链", "分布式", "加密", "去中心化"],
+      "source": "技术百科"
+    },
+    {
+      "question": "如何进行有效沟通？",
+      "answer": "有效沟通的要点：1）明确表达自己的观点；2）积极倾听对方的意见；3）使用简洁清晰的语言；4）注意非语言沟通；5）确认理解是否正确；6）保持开放和尊重的态度。",
+      "category": "communication",
+      "confidence": 0.82,
+      "keywords": ["沟通", "表达", "倾听", "理解"],
+      "source": "沟通指南"
+    },
+    {
+      "question": "什么是敏捷开发？",
+      "answer": "敏捷开发是一种软件开发方法论，强调个体和互动胜过流程和工具、工作的软件胜过详尽的文档、客户合作胜过合同谈判、响应变化胜过遵循计划。它通过迭代和增量的方式快速交付价值。",
+      "category": "technology",
+      "confidence": 0.88,
+      "keywords": ["敏捷开发", "软件开发", "迭代", "团队协作"],
+      "source": "开发方法论"
+    },
+    {
+      "question": "如何管理时间？",
+      "answer": "时间管理的策略：1）设定优先级（重要性和紧急性矩阵）；2）制定日程计划；3）避免拖延症；4）学会说不；5）批量处理相似任务；6）定期回顾和调整计划。",
+      "category": "productivity",
+      "confidence": 0.8,
+      "keywords": ["时间管理", "优先级", "计划", "效率"],
+      "source": "管理指南"
+    },
+    {
+      "question": "什么是物联网？",
+      "answer": "物联网（Internet of Things，IoT）是指通过互联网连接的物理设备网络，这些设备可以收集和交换数据。包括智能家居设备、可穿戴设备、工业传感器等，实现设备间的智能互联。",
+      "category": "technology",
+      "confidence": 0.9,
+      "keywords": ["物联网", "IoT", "智能设备", "传感器"],
+      "source": "技术百科"
+    },
+    {
+      "question": "如何学习新技能？",
+      "answer": "学习新技能的方法：1）设定明确的学习目标；2）制定学习计划和时间表；3）选择合适的学习资源；4）理论与实践相结合；5）寻求反馈和指导；6）保持持续练习和复习。",
+      "category": "education",
+      "confidence": 0.83,
+      "keywords": ["学习", "技能", "目标", "实践"],
+      "source": "学习指南"
+    },
+    {
+      "question": "什么是DevOps？",
+      "answer": "DevOps是开发（Development）和运维（Operations）的结合，是一种软件开发和IT运维的协作文化和实践。它通过自动化、持续集成、持续部署等方式，提高软件交付的速度和质量。",
+      "category": "technology",
+      "confidence": 0.87,
+      "keywords": ["DevOps", "开发", "运维", "自动化", "持续集成"],
+      "source": "技术文档"
+    }
+  ],
+  "import_settings": {
+    "skip_duplicate_check": false,
+    "duplicate_threshold": 0.98,
+    "auto_generate_keywords": false,
+    "validate_before_import": true
+  }
+}

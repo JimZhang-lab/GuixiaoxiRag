@@ -16,16 +16,28 @@ from common.logging_utils import get_logger
 
 
 class SecurityMiddleware(BaseHTTPMiddleware):
-    """安全中间件"""
-    
+    """安全中间件（支持代理转发、分层限流、按用户限流）"""
+
     def __init__(
-        self, 
-        app, 
+        self,
+        app,
         max_request_size: int = 50 * 1024 * 1024,  # 50MB
-        rate_limit_requests: int = 100,  # 每分钟请求数
+        rate_limit_requests: int = 100,  # 每分钟请求数（默认层）
         rate_limit_window: int = 60,  # 时间窗口（秒）
         blocked_ips: Optional[Set[str]] = None,
-        allowed_origins: Optional[Set[str]] = None
+        allowed_origins: Optional[Set[str]] = None,
+        # 代理与用户标识
+        enable_proxy_headers: bool = True,
+        trusted_proxy_ips: Optional[list] = None,
+        user_id_header: str = "x-user-id",
+        client_id_header: str = "x-client-id",
+        api_key_header: str = "x-api-key",
+        authorization_header: str = "authorization",
+        user_tier_header: str = "x-user-tier",
+        # 分层限流
+        rate_limit_tiers: Optional[Dict[str, int]] = None,
+        rate_limit_default_tier: str = "default",
+        min_interval_per_user: float = 0.0,
     ):
         super().__init__(app)
         self.logger = get_logger("security")
@@ -34,94 +46,166 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         self.rate_limit_window = rate_limit_window
         self.blocked_ips = blocked_ips or set()
         self.allowed_origins = allowed_origins
-        
-        # 速率限制跟踪
+        # 代理/头部配置
+        self.enable_proxy_headers = enable_proxy_headers
+        self.trusted_proxy_ips = trusted_proxy_ips or []
+        self.user_id_header = user_id_header.lower()
+        self.client_id_header = client_id_header.lower()
+        self.api_key_header = api_key_header.lower()
+        self.authorization_header = authorization_header.lower()
+        self.user_tier_header = user_tier_header.lower()
+        # 分层限流配置
+        self.rate_limit_tiers = rate_limit_tiers or {"default": rate_limit_requests}
+        self.rate_limit_default_tier = rate_limit_default_tier
+        self.min_interval_per_user = min_interval_per_user
+
+        # 速率限制跟踪（key -> 时间戳队列）
         self.request_counts = defaultdict(deque)
-        
+        # 用户最近一次请求时间
+        self.last_request_time: Dict[str, float] = {}
+
         # 可疑活动跟踪
         self.suspicious_ips = defaultdict(int)
         self.failed_requests = defaultdict(deque)
-    
+
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         client_ip = self._get_client_ip(request)
-        
-        # 1. IP黑名单检查
+        rate_key = self._get_rate_limit_key(request) or client_ip
+
+        # 1. IP黑名单检查（仍按IP黑名单）
         if client_ip in self.blocked_ips:
             self.logger.warning(f"阻止黑名单IP访问: {client_ip}")
             raise HTTPException(status_code=403, detail="访问被拒绝")
-        
-        # 2. 速率限制检查
-        if not self._check_rate_limit(client_ip):
-            self.logger.warning(f"IP {client_ip} 触发速率限制")
+
+        # 2. 速率限制检查（支持按用户等级分层、以及同用户最小间隔）
+        tier = self._get_user_tier(request)
+        limit_per_min = self._get_rate_limit_for_tier(tier)
+        if not self._check_rate_limit(rate_key, limit_per_min):
+            self.logger.warning(f"实体 {rate_key} 触发速率限制 (tier={tier}, IP={client_ip})")
             raise HTTPException(status_code=429, detail="请求过于频繁")
-        
+        # 最小间隔检查
+        if self.min_interval_per_user > 0:
+            last_ts = self.last_request_time.get(rate_key, 0.0)
+            now = time.time()
+            if now - last_ts < self.min_interval_per_user:
+                self.logger.warning(f"实体 {rate_key} 触发最小间隔限制: {now - last_ts:.3f}s < {self.min_interval_per_user}s")
+                raise HTTPException(status_code=429, detail="请求间隔过短")
+            self.last_request_time[rate_key] = now
+
         # 3. 请求大小检查
         content_length = request.headers.get("content-length")
         if content_length and int(content_length) > self.max_request_size:
             self.logger.warning(f"请求大小超限: {content_length} bytes from {client_ip}")
             raise HTTPException(status_code=413, detail="请求体过大")
-        
+
         # 4. Origin检查（如果配置了）
         if self.allowed_origins:
             origin = request.headers.get("origin")
             if origin and origin not in self.allowed_origins:
                 self.logger.warning(f"不允许的Origin: {origin} from {client_ip}")
                 raise HTTPException(status_code=403, detail="不允许的来源")
-        
+
         # 5. 检查可疑活动
         self._check_suspicious_activity(request, client_ip)
-        
+
         try:
             response = await call_next(request)
 
             # 记录成功请求
-            self._record_request(client_ip, True)
+            self._record_request(rate_key, True)
 
             # 添加安全头部（传递请求路径）
             self._add_security_headers(response, request.url.path)
 
             return response
-            
+
         except HTTPException as e:
             # 记录失败请求
-            self._record_request(client_ip, False)
-            self._record_failed_request(client_ip, e.status_code)
+            self._record_request(rate_key, False)
+            self._record_failed_request(rate_key, e.status_code)
             raise
         except Exception as e:
             # 记录异常
-            self._record_request(client_ip, False)
-            self._record_failed_request(client_ip, 500)
+            self._record_request(rate_key, False)
+            self._record_failed_request(rate_key, 500)
             raise
     
     def _get_client_ip(self, request: Request) -> str:
-        """获取客户端IP地址"""
-        # 检查代理头部
-        forwarded_for = request.headers.get("x-forwarded-for")
-        if forwarded_for:
-            return forwarded_for.split(",")[0].strip()
-        
-        real_ip = request.headers.get("x-real-ip")
-        if real_ip:
-            return real_ip
-        
+        """获取客户端IP地址（支持受信任代理）"""
+        # 如果启用代理头且来源在受信任代理列表，则使用代理头
+        if self.enable_proxy_headers:
+            # 获取直连对端（可能是代理）
+            peer_ip = request.client.host if request.client else "unknown"
+            if self._is_trusted_proxy(peer_ip):
+                forwarded_for = request.headers.get("x-forwarded-for")
+                if forwarded_for:
+                    return forwarded_for.split(",")[0].strip()
+                real_ip = request.headers.get("x-real-ip")
+                if real_ip:
+                    return real_ip
+        # 回退：使用直连IP
         return request.client.host if request.client else "unknown"
-    
-    def _check_rate_limit(self, client_ip: str) -> bool:
-        """检查速率限制"""
+
+    def _is_trusted_proxy(self, ip: str) -> bool:
+        try:
+            import ipaddress
+            for cidr in self.trusted_proxy_ips:
+                try:
+                    if "/" in cidr:
+                        if ipaddress.ip_address(ip) in ipaddress.ip_network(cidr, strict=False):
+                            return True
+                    else:
+                        if ip == cidr:
+                            return True
+                except ValueError:
+                    continue
+        except Exception:
+            pass
+        return False
+
+    def _check_rate_limit(self, key: str, limit_per_minute: int) -> bool:
+        """检查速率限制：按给定限额计算（支持分层）"""
         current_time = time.time()
-        requests = self.request_counts[client_ip]
-        
+        requests = self.request_counts[key]
+        window = self.rate_limit_window
         # 清理过期的请求记录
-        while requests and requests[0] < current_time - self.rate_limit_window:
+        while requests and requests[0] < current_time - window:
             requests.popleft()
-        
         # 检查是否超过限制
-        if len(requests) >= self.rate_limit_requests:
+        if len(requests) >= limit_per_minute:
             return False
-        
         # 记录当前请求
         requests.append(current_time)
         return True
+
+    def _get_rate_limit_key(self, request: Request) -> Optional[str]:
+        """获取用于速率限制的键：优先用户，其次客户端/密钥；支持自定义头名"""
+        # 用户/客户端标识头部（使用可配置的头名）
+        headers = {k.lower(): v for k, v in request.headers.items()}
+        user_id = headers.get(self.user_id_header)
+        client_id = headers.get(self.client_id_header)
+        api_key = headers.get(self.api_key_header)
+        auth = headers.get(self.authorization_header)
+        # 查询参数备选
+        if not user_id:
+            user_id = request.query_params.get("user_id")
+        if not api_key:
+            api_key = request.query_params.get("api_key")
+        # 优先顺序：user_id > client_id > api_key > authorization
+        for v in (user_id, client_id, api_key, auth):
+            if v:
+                digest = hashlib.sha256(v.encode("utf-8")).hexdigest()[:16]
+                return f"user:{digest}"
+        return None
+
+    def _get_user_tier(self, request: Request) -> str:
+        headers = {k.lower(): v for k, v in request.headers.items()}
+        tier = headers.get(self.user_tier_header)
+        return tier or self.rate_limit_default_tier
+
+    def _get_rate_limit_for_tier(self, tier: str) -> int:
+        return self.rate_limit_tiers.get(tier, self.rate_limit_tiers.get(self.rate_limit_default_tier, self.rate_limit_requests))
+
     
     def _check_suspicious_activity(self, request: Request, client_ip: str):
         """检查可疑活动"""

@@ -29,7 +29,7 @@ class SystemAPI:
             
             system_status = SystemStatus(
                 service_name="GuiXiaoXiRag",
-                version="2.0.0",
+                version="0.1.0",
                 status=health_info["status"],
                 initialized=health_info["initialized"],
                 working_dir=health_info.get("current_working_dir", ""),
@@ -47,7 +47,7 @@ class SystemAPI:
             # 返回降级的健康状态
             system_status = SystemStatus(
                 service_name="GuiXiaoXiRag",
-                version="2.0.0",
+                version="0.1.0",
                 status="unhealthy",
                 initialized=False,
                 working_dir="",

@@ -2,11 +2,11 @@
 GuiXiaoXiRag服务器
 重构版本 - 模块化、可扩展、高性能
 
-版本: 2.0.0
+版本: 0.1.0
 作者: GuiXiaoXi Team
 """
 
-__version__ = "2.0.0"
+__version__ = "0.1.0"
 __author__ = "GuiXiaoXi Team"
 __description__ = "智能知识图谱问答系统"
 

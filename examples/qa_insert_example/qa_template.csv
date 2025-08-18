@@ -1,0 +1,3 @@
+question,answer,category,confidence,keywords,source
+"这里填写问题内容","这里填写答案内容","分类名称",0.9,"关键词1;关键词2;关键词3","来源信息"
+"第二个问题示例","第二个答案示例","general",0.8,"","可选来源"

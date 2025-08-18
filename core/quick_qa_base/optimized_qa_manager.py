@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional, Union
 import logging
 
 from .qa_vector_storage import QAVectorStorage, QAPair
+from .category_qa_storage import CategoryQAStorage
 from core.common.llm_client import create_embedding_function
 from core.rag.utils import EmbeddingFunc
 
@@ -34,7 +35,7 @@ class OptimizedQAManager:
                  namespace: str = "default",
                  similarity_threshold: float = 0.98,
                  max_results: int = 10,
-                 working_dir: str = "./Q&A_Base"):
+                 working_dir: str = "./Q_A_Base"):
         """
         初始化Q&A管理器
         
@@ -95,8 +96,8 @@ class OptimizedQAManager:
             except Exception as e:
                 logger.warning(f"Could not determine embedding dimension: {e}")
             
-            # 创建存储
-            self.storage = QAVectorStorage(
+            # 创建分类存储
+            self.storage = CategoryQAStorage(
                 namespace=self.namespace,
                 workspace=self.workspace,
                 global_config=self.global_config,
@@ -118,33 +119,64 @@ class OptimizedQAManager:
             logger.error(f"Error initializing QA Manager: {e}")
             return False
     
-    async def add_qa_pair(self, question: str, answer: str, **kwargs) -> Optional[str]:
-        """添加问答对"""
+    async def add_qa_pair(self, question: str, answer: str, **kwargs) -> Dict[str, Any]:
+        """添加问答对（带重复检查）"""
         if not self.initialized:
             logger.error("QA Manager not initialized")
-            return None
-        
+            return {
+                "success": False,
+                "error": "QA Manager not initialized"
+            }
+
         try:
             qa_id = await self.storage.add_qa_pair(question, answer, **kwargs)
+
+            # 检查是否是重复问题
+            if qa_id and qa_id.startswith("DUPLICATE:"):
+                parts = qa_id.split(":")
+                existing_qa_id = parts[1]
+                similarity = float(parts[2])
+
+                return {
+                    "success": False,
+                    "is_duplicate": True,
+                    "message": f"问题与现有问答对相似度过高: {similarity:.4f}",
+                    "existing_qa_id": existing_qa_id,
+                    "similarity": similarity
+                }
+
             if qa_id:
                 # 保存数据
                 await self.storage.index_done_callback()
                 logger.info(f"Added QA pair: {qa_id}")
-            return qa_id
+                return {
+                    "success": True,
+                    "qa_id": qa_id,
+                    "message": "问答对添加成功"
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": "Failed to add QA pair"
+                }
+
         except Exception as e:
             logger.error(f"Error adding QA pair: {e}")
-            return None
+            return {
+                "success": False,
+                "error": str(e)
+            }
     
     async def add_qa_pairs_batch(self, qa_pairs: List[Dict[str, Any]]) -> Dict[str, Any]:
         """批量添加问答对"""
         if not self.initialized:
             return {"success": False, "error": "QA Manager not initialized"}
-        
-        added_count = 0
-        failed_count = 0
-        added_ids = []
-        
+
         try:
+            # 验证数据
+            valid_qa_pairs = []
+            failed_count = 0
+
             for qa_data in qa_pairs:
                 question = qa_data.get("question")
                 answer = qa_data.get("answer")
@@ -153,47 +185,51 @@ class OptimizedQAManager:
                     failed_count += 1
                     continue
 
-                # 创建一个不包含question和answer的kwargs字典
-                kwargs = {k: v for k, v in qa_data.items() if k not in ['question', 'answer']}
-                qa_id = await self.storage.add_qa_pair(question, answer, **kwargs)
-                if qa_id:
-                    added_count += 1
-                    added_ids.append(qa_id)
-                else:
-                    failed_count += 1
-            
+                valid_qa_pairs.append(qa_data)
+
+            # 使用存储的批量添加方法（现在返回详细结果）
+            result = await self.storage.add_qa_pairs_batch(valid_qa_pairs)
+
             # 保存数据
             await self.storage.index_done_callback()
-            
+
             return {
                 "success": True,
-                "added_count": added_count,
-                "failed_count": failed_count,
-                "added_ids": added_ids
+                "added_count": result.get("added_count", 0),
+                "skipped_count": result.get("skipped_count", 0),
+                "failed_count": failed_count + result.get("failed_count", 0),
+                "added_ids": result.get("added_ids", []),
+                "skipped_duplicates": result.get("skipped_duplicates", []),
+                "failed_items": result.get("failed_items", [])
             }
-            
+
         except Exception as e:
             logger.error(f"Error in batch add: {e}")
             return {"success": False, "error": str(e)}
     
-    async def query(self, question: str, top_k: Optional[int] = None) -> Dict[str, Any]:
-        """查询问答"""
+    async def query(self, question: str, top_k: Optional[int] = None, min_similarity: Optional[float] = None, category: Optional[str] = None) -> Dict[str, Any]:
+        """查询问答
+        - min_similarity: 覆盖默认相似度阈值（按次查询）
+        - category: 仅在该分类内检索匹配
+        """
         if not self.initialized:
             return {"success": False, "error": "QA Manager not initialized"}
-        
+
         if top_k is None:
             top_k = self.max_results
-        
+
         try:
             start_time = time.time()
-            result = await self.storage.query_qa(question, top_k)
+            # 将 min_similarity 转换为 NanoVectorDB 的距离阈值（1 - sim）传入底层查询，减少无意义结果
+            better_than_threshold = None if min_similarity is None else (1.0 - float(min_similarity))
+            result = await self.storage.query_qa(question, top_k, min_similarity=min_similarity, category=category, better_than_threshold=better_than_threshold)
             response_time = time.time() - start_time
-            
+
             if result.get("success"):
                 result["response_time"] = response_time
-            
+
             return result
-            
+
         except Exception as e:
             logger.error(f"Error querying QA: {e}")
             return {"success": False, "error": str(e)}
@@ -317,11 +353,208 @@ class OptimizedQAManager:
                 "message": str(e)
             }
     
+    def get_categories(self) -> List[str]:
+        """获取所有分类列表"""
+        if not self.initialized:
+            return []
+        return self.storage.get_categories()
+
+    def get_category_stats(self) -> Dict[str, Dict[str, Any]]:
+        """获取各分类的统计信息"""
+        if not self.initialized:
+            return {}
+        return self.storage.get_category_stats()
+
+    async def import_from_json(self, json_file: str) -> bool:
+        """从JSON文件导入问答对"""
+        if not self.initialized:
+            logger.error("QA Manager not initialized")
+            return False
+
+        try:
+            with open(json_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+
+            # 支持两种JSON格式
+            qa_pairs = []
+            if 'qa_pairs' in data:
+                # 格式1: {"qa_pairs": [...]}
+                qa_pairs = data['qa_pairs']
+            elif isinstance(data, list):
+                # 格式2: [...]
+                qa_pairs = data
+            else:
+                logger.error("Invalid JSON format: expected 'qa_pairs' key or array")
+                return False
+
+            if not qa_pairs:
+                logger.warning("No QA pairs found in JSON file")
+                return True
+
+            # 批量添加问答对
+            result = await self.add_qa_pairs_batch(qa_pairs)
+
+            if result.get("success"):
+                added_count = result.get("added_count", 0)
+                skipped_count = result.get("skipped_count", 0)
+                failed_count = result.get("failed_count", 0)
+
+                logger.info(f"JSON import completed: {added_count} added, {skipped_count} skipped, {failed_count} failed")
+                return True
+            else:
+                logger.error(f"JSON import failed: {result.get('error')}")
+                return False
+
+        except Exception as e:
+            logger.error(f"Error importing from JSON: {e}")
+            return False
+
+    async def import_from_csv(self, csv_file: str) -> bool:
+        """从CSV文件导入问答对"""
+        if not self.initialized:
+            logger.error("QA Manager not initialized")
+            return False
+
+        try:
+            import pandas as pd
+
+            # 读取CSV文件
+            df = pd.read_csv(csv_file)
+
+            # 检查必需的列
+            required_columns = ['question', 'answer']
+            missing_columns = [col for col in required_columns if col not in df.columns]
+            if missing_columns:
+                logger.error(f"CSV file missing required columns: {missing_columns}")
+                return False
+
+            # 转换为问答对列表
+            qa_pairs = []
+            for _, row in df.iterrows():
+                qa_pair = {
+                    'question': str(row['question']).strip(),
+                    'answer': str(row['answer']).strip()
+                }
+
+                # 添加可选字段
+                if 'category' in df.columns and pd.notna(row['category']):
+                    qa_pair['category'] = str(row['category']).strip()
+                if 'confidence' in df.columns and pd.notna(row['confidence']):
+                    qa_pair['confidence'] = float(row['confidence'])
+                if 'keywords' in df.columns and pd.notna(row['keywords']):
+                    # 分号分隔的关键词
+                    keywords = str(row['keywords']).split(';')
+                    qa_pair['keywords'] = [kw.strip() for kw in keywords if kw.strip()]
+                if 'source' in df.columns and pd.notna(row['source']):
+                    qa_pair['source'] = str(row['source']).strip()
+
+                # 跳过空的问答对
+                if qa_pair['question'] and qa_pair['answer']:
+                    qa_pairs.append(qa_pair)
+
+            if not qa_pairs:
+                logger.warning("No valid QA pairs found in CSV file")
+                return True
+
+            # 批量添加问答对
+            result = await self.add_qa_pairs_batch(qa_pairs)
+
+            if result.get("success"):
+                added_count = result.get("added_count", 0)
+                skipped_count = result.get("skipped_count", 0)
+                failed_count = result.get("failed_count", 0)
+
+                logger.info(f"CSV import completed: {added_count} added, {skipped_count} skipped, {failed_count} failed")
+                return True
+            else:
+                logger.error(f"CSV import failed: {result.get('error')}")
+                return False
+
+        except ImportError:
+            logger.error("pandas is required for CSV import")
+            return False
+        except Exception as e:
+            logger.error(f"Error importing from CSV: {e}")
+            return False
+
+    async def import_from_excel(self, excel_file: str) -> bool:
+        """从Excel文件导入问答对"""
+        if not self.initialized:
+            logger.error("QA Manager not initialized")
+            return False
+
+        try:
+            import pandas as pd
+
+            # 读取Excel文件（默认第一个工作表）
+            df = pd.read_excel(excel_file)
+
+            # 检查必需的列
+            required_columns = ['question', 'answer']
+            missing_columns = [col for col in required_columns if col not in df.columns]
+            if missing_columns:
+                logger.error(f"Excel file missing required columns: {missing_columns}")
+                return False
+
+            # 转换为问答对列表
+            qa_pairs = []
+            for _, row in df.iterrows():
+                qa_pair = {
+                    'question': str(row['question']).strip(),
+                    'answer': str(row['answer']).strip()
+                }
+
+                # 添加可选字段
+                if 'category' in df.columns and pd.notna(row['category']):
+                    qa_pair['category'] = str(row['category']).strip()
+                if 'confidence' in df.columns and pd.notna(row['confidence']):
+                    qa_pair['confidence'] = float(row['confidence'])
+                if 'keywords' in df.columns and pd.notna(row['keywords']):
+                    # 分号分隔的关键词
+                    keywords = str(row['keywords']).split(';')
+                    qa_pair['keywords'] = [kw.strip() for kw in keywords if kw.strip()]
+                if 'source' in df.columns and pd.notna(row['source']):
+                    qa_pair['source'] = str(row['source']).strip()
+
+                # 跳过空的问答对
+                if qa_pair['question'] and qa_pair['answer']:
+                    qa_pairs.append(qa_pair)
+
+            if not qa_pairs:
+                logger.warning("No valid QA pairs found in Excel file")
+                return True
+
+            # 批量添加问答对
+            result = await self.add_qa_pairs_batch(qa_pairs)
+
+            if result.get("success"):
+                added_count = result.get("added_count", 0)
+                skipped_count = result.get("skipped_count", 0)
+                failed_count = result.get("failed_count", 0)
+
+                logger.info(f"Excel import completed: {added_count} added, {skipped_count} skipped, {failed_count} failed")
+                return True
+            else:
+                logger.error(f"Excel import failed: {result.get('error')}")
+                return False
+
+        except ImportError:
+            logger.error("pandas and openpyxl are required for Excel import")
+            return False
+        except Exception as e:
+            logger.error(f"Error importing from Excel: {e}")
+            return False
+
     async def cleanup(self):
         """清理资源"""
         try:
             if self.storage:
-                await self.storage.index_done_callback()
+                # 对于CategoryQAStorage，需要清理所有分类存储
+                if hasattr(self.storage, 'category_storages'):
+                    for storage in self.storage.category_storages.values():
+                        await storage.index_done_callback()
+                else:
+                    await self.storage.index_done_callback()
             logger.info("QA Manager cleanup completed")
         except Exception as e:
             logger.error(f"Error during cleanup: {e}")

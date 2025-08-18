@@ -26,9 +26,24 @@ def setup_middleware(app: FastAPI):
         allow_headers=["*"],
     )
     
-    # 2. 安全中间件
-    app.add_middleware(SecurityMiddleware)
-    
+    # 2. 安全中间件（从配置注入限流参数）
+    app.add_middleware(
+        SecurityMiddleware,
+        max_request_size=settings.max_request_size,
+        rate_limit_requests=settings.rate_limit_requests,
+        rate_limit_window=settings.rate_limit_window,
+        enable_proxy_headers=settings.enable_proxy_headers,
+        trusted_proxy_ips=settings.trusted_proxy_ips,
+        user_id_header=settings.user_id_header,
+        client_id_header=settings.client_id_header,
+        api_key_header=settings.api_key_header,
+        authorization_header=settings.authorization_header,
+        user_tier_header=settings.user_tier_header,
+        rate_limit_tiers=settings.rate_limit_tiers,
+        rate_limit_default_tier=settings.rate_limit_default_tier,
+        min_interval_per_user=settings.min_interval_per_user,
+    )
+
     # 3. 性能监控中间件
     app.add_middleware(MetricsMiddleware)
     

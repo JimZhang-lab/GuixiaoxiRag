@@ -56,7 +56,8 @@ class QueryAPI:
             if request.enable_rerank is not None:
                 query_kwargs["enable_rerank"] = request.enable_rerank
             
-            # 执行查询
+            # 执行查询并计时
+            start_time = time.time()
             result = await guixiaoxirag_service.query(
                 query=request.query,
                 mode=request.mode,
@@ -67,14 +68,22 @@ class QueryAPI:
                 performance_mode=request.performance_mode,
                 **query_kwargs
             )
-            
-            # 构建响应
+            elapsed = time.time() - start_time
+
+            # 构建响应，填充响应时间（如可得）
+            response_time = None
+            if isinstance(result, dict) and "response_time" in result:
+                response_time = result.get("response_time")
+            else:
+                response_time = elapsed
+
             query_response = QueryResponse(
-                result=result,
+                result=result if isinstance(result, str) else str(result),
                 mode=request.mode,
                 query=request.query,
                 knowledge_base=request.knowledge_base,
-                language=request.language
+                language=request.language,
+                response_time=response_time,
             )
             
             return BaseResponse(

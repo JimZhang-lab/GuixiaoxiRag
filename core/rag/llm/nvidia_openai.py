@@ -54,8 +54,9 @@ async def nvidia_openai_embed(
     if api_key:
         os.environ["OPENAI_API_KEY"] = api_key
 
+    timeout = int(os.getenv("EMBEDDING_TIMEOUT", os.getenv("LLM_TIMEOUT", "240")))
     openai_async_client = (
-        AsyncOpenAI() if base_url is None else AsyncOpenAI(base_url=base_url)
+        AsyncOpenAI(timeout=timeout) if base_url is None else AsyncOpenAI(base_url=base_url, timeout=timeout)
     )
     response = await openai_async_client.embeddings.create(
         model=model,

@@ -24,8 +24,8 @@ class QAHandler:
         self.embedding_function = None
         self.initialized = False
         
-        # 配置参数
-        self.qa_storage_dir = os.path.join(settings.working_dir, "Q&A_Base")
+        # 配置参数（支持独立的 QA 存储目录）
+        self.qa_storage_dir = settings.qa_storage_dir or os.path.join(settings.working_dir, "Q_A_Base")
         self.qa_storage_file = os.path.join(self.qa_storage_dir, "qa_pairs.json")
         self.similarity_threshold = getattr(settings, 'qa_similarity_threshold', 0.98)  # 使用0.98高精度阈值
         self.max_results = getattr(settings, 'qa_max_results', 10)
@@ -130,12 +130,20 @@ class QAHandler:
                 }
             ]
             
+            # 临时禁用内置默认问答对的自动添加，避免重复数据
+            # 因为我们已经在数据文件中有了这些问答对
+            logger.info("Skipping built-in default QA pairs addition to avoid duplicates")
+
+            # 如果需要重新启用，可以取消下面的注释
+            """
             # 批量添加默认问答对
             result = await self.qa_manager.add_qa_pairs_batch(default_qa_pairs)
             if result.get("success"):
                 logger.info(f"Added {result.get('added_count', 0)} built-in default QA pairs")
             else:
                 logger.error(f"Failed to add built-in default QA pairs: {result.get('error')}")
+            """
+            
             
         except Exception as e:
             logger.warning(f"Failed to load default QA pairs: {e}")
@@ -148,12 +156,12 @@ class QAHandler:
         
         return await self.qa_manager.add_qa_pair(question, answer, **kwargs)
     
-    async def add_qa_pairs_batch(self, qa_data: List[Dict[str, Any]]) -> List[str]:
+    async def add_qa_pairs_batch(self, qa_data: List[Dict[str, Any]]) -> Dict[str, Any]:
         """批量添加问答对"""
         if not self.initialized:
             logger.error("QA Handler not initialized")
-            return []
-        
+            return {"success": False, "error": "QA Handler not initialized"}
+
         return await self.qa_manager.add_qa_pairs_batch(qa_data)
     
     async def query(self, question: str, top_k: int = 1) -> Dict[str, Any]:
@@ -203,8 +211,22 @@ class QAHandler:
         """从JSON文件导入"""
         if not self.initialized:
             return False
-        
+
         return await self.qa_manager.import_from_json(json_file)
+
+    async def import_from_csv(self, csv_file: str) -> bool:
+        """从CSV文件导入"""
+        if not self.initialized:
+            return False
+
+        return await self.qa_manager.import_from_csv(csv_file)
+
+    async def import_from_excel(self, excel_file: str) -> bool:
+        """从Excel文件导入"""
+        if not self.initialized:
+            return False
+
+        return await self.qa_manager.import_from_excel(excel_file)
     
     async def export_to_json(self, json_file: str) -> bool:
         """导出到JSON文件"""

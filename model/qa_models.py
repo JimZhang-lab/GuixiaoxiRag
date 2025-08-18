@@ -32,7 +32,8 @@ class QAPairBase(BaseModel):
 
 class QAPairCreate(QAPairBase):
     """创建问答对请求模型"""
-    pass
+    skip_duplicate_check: bool = Field(default=False, description="是否跳过重复检查")
+    duplicate_threshold: float = Field(default=0.98, description="重复检查阈值", ge=0.0, le=1.0)
 
 
 class QAPairUpdate(BaseModel):

@@ -65,6 +65,7 @@ async def azure_openai_complete_if_cache(
         azure_deployment=deployment,
         api_key=api_key,
         api_version=api_version,
+        timeout=int(os.getenv("LLM_TIMEOUT", "240")),
     )
     kwargs.pop("hashing_kv", None)
     messages = []
@@ -162,6 +163,7 @@ async def azure_openai_embed(
         azure_deployment=deployment,
         api_key=api_key,
         api_version=api_version,
+        timeout=int(os.getenv("EMBEDDING_TIMEOUT", os.getenv("LLM_TIMEOUT", "240"))),
     )
 
     response = await openai_async_client.embeddings.create(

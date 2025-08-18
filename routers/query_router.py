@@ -25,7 +25,9 @@ query_api = QueryAPI()
     summary="智能知识查询",
     description="""
     基于知识图谱的智能查询，支持多种查询模式和参数优化。
-    
+
+    超时说明：默认大模型请求超时为 240 秒，可通过 .env 配置 LLM_TIMEOUT 调整。
+
     **查询模式说明：**
     - local: 本地模式 - 专注于上下文相关信息
     - global: 全局模式 - 利用全局知识
@@ -33,7 +35,7 @@ query_api = QueryAPI()
     - naive: 朴素模式 - 执行基本搜索
     - mix: 混合模式 - 整合知识图谱和向量检索
     - bypass: 绕过模式 - 直接返回结果
-    
+
     **参数说明：**
     - query: 查询内容（必填）
     - mode: 查询模式（可选，默认hybrid）
@@ -45,7 +47,7 @@ query_api = QueryAPI()
     - knowledge_base: 知识库名称（可选）
     - language: 回答语言（可选）
     - performance_mode: 性能模式（fast/balanced/quality）
-    
+
     **使用示例：**
     ```json
     {
@@ -143,7 +145,9 @@ async def get_query_modes():
     summary="批量查询处理",
     description="""
     批量处理多个查询请求，提高查询效率。
-    
+
+    超时说明：默认单条 LLM 请求超时 240 秒；批量接口可通过 body.timeout 控制聚合等待超时。
+
     **参数说明：**
     - queries: 查询列表（必填，最多50个）
     - mode: 查询模式（可选，应用于所有查询）
@@ -152,13 +156,13 @@ async def get_query_modes():
     - language: 回答语言（可选）
     - parallel: 是否并行处理（可选，默认true）
     - timeout: 超时时间（可选，默认300秒）
-    
+
     **处理特点：**
     - 支持并行处理以提高效率
     - 单个查询失败不影响其他查询
     - 返回每个查询的详细结果
     - 支持超时控制
-    
+
     **使用示例：**
     ```json
     {
@@ -186,18 +190,20 @@ async def batch_query(request: BatchQueryRequest):
     summary="优化参数查询",
     description="""
     使用性能优化参数的查询，根据查询模式和性能要求自动调整参数。
-    
+
+    超时说明：默认大模型请求超时为 240 秒，可通过 .env 的 LLM_TIMEOUT 配置调整。
+
     **优化特性：**
     - 根据查询模式自动优化参数
     - 支持不同性能级别（fast/balanced/quality）
     - 动态调整token限制和检索参数
     - 提供性能监控和建议
-    
+
     **性能模式：**
     - fast: 快速模式，优先响应速度
     - balanced: 平衡模式，兼顾速度和质量
     - quality: 质量模式，优先结果质量
-    
+
     **参数说明：**
     - query: 查询内容（必填）
     - mode: 查询模式（可选）

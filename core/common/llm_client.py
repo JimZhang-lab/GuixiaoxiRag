@@ -144,6 +144,7 @@ class OpenAIEmbeddingClient(BaseEmbeddingClient):
         self.api_base = config.get("api_base", "").rstrip("/")
         self.api_key = config.get("api_key", "")
         self.model = config.get("model", "text-embedding-ada-002")
+        self.embedding_dim = config.get("dim", 2560)
 
     async def create_embeddings(self, texts: List[str], **kwargs) -> List[List[float]]:
         """创建OpenAI文本嵌入向量"""
@@ -562,9 +563,12 @@ async def create_embedding_function() -> Optional[callable]:
         logger.warning(f"Embedding客户端健康检查异常: {e}")
         return None
 
-    async def embedding_function(texts: List[str]) -> List[List[float]]:
+    async def embedding_function(texts: List[str], **kwargs) -> List[List[float]]:
         """Embedding函数包装器"""
-        return await client.create_embeddings(texts)
+        return await client.create_embeddings(texts, **kwargs)
+
+    # 添加embedding_dim属性到函数对象
+    embedding_function.embedding_dim = getattr(client, 'embedding_dim', 2560)
 
     return embedding_function
 

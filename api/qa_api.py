@@ -93,33 +93,47 @@ class QAAPIHandler:
             )
         
         try:
-            qa_id = await self.qa_manager.add_qa_pair(
+            result = await self.qa_manager.add_qa_pair(
                 question=request.question,
                 answer=request.answer,
                 category=request.category,
                 confidence=request.confidence,
                 keywords=request.keywords,
-                source=request.source
+                source=request.source,
+                skip_duplicate_check=request.skip_duplicate_check,
+                duplicate_threshold=request.duplicate_threshold
             )
-            
-            if qa_id:
-                response_time = time.time() - start_time
+
+            response_time = time.time() - start_time
+
+            if result.get("success"):
                 self._update_stats(True, response_time)
-                
+
                 return BaseResponse(
                     success=True,
-                    message="问答对创建成功",
-                    data={"qa_id": qa_id}
+                    message=result.get("message", "问答对创建成功"),
+                    data={"qa_id": result.get("qa_id")}
                 )
             else:
-                response_time = time.time() - start_time
                 self._update_stats(False, response_time)
-                
-                return BaseResponse(
-                    success=False,
-                    message="问答对创建失败",
-                    error_code="QA_CREATE_FAILED"
-                )
+
+                # 检查是否是重复问题
+                if result.get("is_duplicate"):
+                    return BaseResponse(
+                        success=False,
+                        message=result.get("message", "问题重复"),
+                        error_code="QA_DUPLICATE",
+                        data={
+                            "existing_qa_id": result.get("existing_qa_id"),
+                            "similarity": result.get("similarity")
+                        }
+                    )
+                else:
+                    return BaseResponse(
+                        success=False,
+                        message=result.get("error", "问答对创建失败"),
+                        error_code="QA_CREATE_FAILED"
+                    )
                 
         except Exception as e:
             response_time = time.time() - start_time
@@ -153,20 +167,40 @@ class QAAPIHandler:
                     "category": qa_pair.category,
                     "confidence": qa_pair.confidence,
                     "keywords": qa_pair.keywords,
-                    "source": qa_pair.source
+                    "source": qa_pair.source,
+                    "skip_duplicate_check": qa_pair.skip_duplicate_check,
+                    "duplicate_threshold": qa_pair.duplicate_threshold
                 })
             
-            added_ids = await self.qa_manager.add_qa_pairs_batch(qa_data)
-            
+            result = await self.qa_manager.add_qa_pairs_batch(qa_data)
+
             response_time = time.time() - start_time
             self._update_stats(True, response_time)
-            
+
+            added_count = result.get("added_count", 0)
+            skipped_count = result.get("skipped_count", 0)
+            failed_count = result.get("failed_count", 0)
+
+            message_parts = []
+            if added_count > 0:
+                message_parts.append(f"成功添加 {added_count} 个问答对")
+            if skipped_count > 0:
+                message_parts.append(f"跳过 {skipped_count} 个重复问题")
+            if failed_count > 0:
+                message_parts.append(f"失败 {failed_count} 个")
+
+            message = "批量创建完成：" + "，".join(message_parts) if message_parts else "批量创建完成"
+
             return BaseResponse(
                 success=True,
-                message=f"批量创建成功，共添加 {len(added_ids)} 个问答对",
+                message=message,
                 data={
-                    "added_count": len(added_ids),
-                    "qa_ids": added_ids
+                    "added_count": added_count,
+                    "skipped_count": skipped_count,
+                    "failed_count": failed_count,
+                    "qa_ids": result.get("added_ids", []),
+                    "skipped_duplicates": result.get("skipped_duplicates", []),
+                    "failed_items": result.get("failed_items", [])
                 }
             )
             
@@ -193,10 +227,12 @@ class QAAPIHandler:
             )
         
         try:
-            # 执行查询
+            # 执行查询（支持按请求覆盖相似度阈值与分类过滤）
             result = await self.qa_manager.query(
                 question=request.question,
-                top_k=request.top_k
+                top_k=request.top_k,
+                min_similarity=request.min_similarity,
+                category=request.category,
             )
             
             response_time = time.time() - start_time
@@ -272,23 +308,36 @@ class QAAPIHandler:
             )
         
         try:
-            # 获取所有问答对
-            qa_pairs = self.qa_manager.list_qa_pairs(
+            # 获取所有问答对（不分页，获取原始数据）
+            qa_result = self.qa_manager.list_qa_pairs(
                 category=request.category,
-                min_confidence=request.min_confidence
+                min_confidence=request.min_confidence,
+                page=1,
+                page_size=10000  # 获取所有数据
             )
-            
+
+            # 检查结果
+            if not qa_result.get("success", False):
+                return BaseResponse(
+                    success=False,
+                    message=qa_result.get("error", "获取问答对失败"),
+                    error_code="QA_LIST_ERROR"
+                )
+
+            # 获取问答对列表
+            qa_pairs = qa_result.get("data", {}).get("qa_pairs", [])
+
             # 关键词过滤
             if request.keyword:
                 keyword_lower = request.keyword.lower()
                 filtered_pairs = []
                 for qa_pair in qa_pairs:
-                    if (keyword_lower in qa_pair["question"].lower() or 
+                    if (keyword_lower in qa_pair["question"].lower() or
                         keyword_lower in qa_pair["answer"].lower() or
                         any(keyword_lower in kw.lower() for kw in qa_pair.get("keywords", []))):
                         filtered_pairs.append(qa_pair)
                 qa_pairs = filtered_pairs
-            
+
             # 分页处理
             total = len(qa_pairs)
             start_idx = (request.page - 1) * request.page_size

@@ -2,22 +2,28 @@
 
 <div align="center">
 
-![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)
+![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-Latest-green.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen.svg)
 
 **GuiXiaoXi检索增强生成（RAG）FastAPI 服务**
 
-*提供企业级的智能问答和知识管理解决方案*
+*企业级智能问答和知识管理解决方案*
 
-[📖 文档](docs/README.md) • [🚀 快速开始](docs/Quick_Start_Guide.md) • [🌐 API 文档](http://localhost:8002/docs)
+[📖 API 文档](docs/API_Documentation.md) • [🔗 网关对接](docs/gateway_collaboration.md) • [🌐 在线文档](http://localhost:8002/docs)
 
 </div>
 
 ## 项目简介
 
 GuiXiaoXiRag 是一个基于 FastAPI 的智能知识问答系统，集成了知识图谱、向量检索、意图识别等多种AI技术。该系统提供强大的知识管理和智能查询功能，支持多种文档格式的处理和多模态的知识检索。
+
+**核心亮点**：
+- 🔍 **智能检索**: 基于RAG架构的文档检索和知识图谱查询
+- 💬 **固定问答**: 高精度的预设问答对匹配系统，支持FAQ、客服问答等场景
+- 📚 **知识管理**: 多格式文档处理和多知识库管理
+- 🚀 **企业级**: 支持网关协同、限流控制、性能监控等企业级功能
 
 ## 主要特性
 
@@ -27,17 +33,18 @@ GuiXiaoXiRag 是一个基于 FastAPI 的智能知识问答系统，集成了知�
 - **文档管理**: 支持多种格式文档的上传、处理和索引
 - **意图识别**: 智能分析查询意图和安全级别
 - **多知识库**: 支持创建和管理多个独立的知识库
-- **问答系统**: 基于RAG架构的高精度问答系统，支持0.98相似度阈值匹配
+- **固定问答系统**: 基于RAG架构的高精度问答系统，支持预设问答对的精确匹配和文件批量导入（JSON/CSV/Excel）
 
 ### 🛠️ 技术特性
 - **模块化架构**: 清晰的分层设计，易于维护和扩展
 - **异步处理**: 基于 FastAPI 的高性能异步处理
 - **缓存机制**: 多层缓存优化，提升查询性能
-- **安全检查**: 内置安全检查和内容过滤机制
+- **网关协同**: 支持用户优先限流、分层限流与最小请求间隔
 - **性能监控**: 完整的性能指标和健康检查
 
 ### 📊 支持格式
 - **文档格式**: PDF, DOCX, DOC, TXT, MD, JSON, XML, CSV
+- **问答导入**: JSON, CSV, Excel格式的问答对批量导入
 - **查询模式**: 文本查询、批量查询、流式查询
 - **输出格式**: JSON, XML, CSV, HTML可视化
 
@@ -46,48 +53,21 @@ GuiXiaoXiRag 是一个基于 FastAPI 的智能知识问答系统，集成了知�
 ```
 GuiXiaoXiRag/
 ├── api/                    # API业务逻辑层
-│   ├── query_api.py       # 查询API处理器
-│   ├── document_api.py    # 文档管理API
-│   ├── knowledge_base_api.py  # 知识库管理API
-│   ├── knowledge_graph_api.py # 知识图谱API
-│   ├── system_api.py      # 系统管理API
-│   ├── intent_recogition_api.py # 意图识别API
-│   └── cache_management_api.py  # 缓存管理API
 ├── routers/               # FastAPI路由层
-│   ├── query_router.py    # 查询路由
-│   ├── document_router.py # 文档管理路由
-│   ├── knowledge_base_router.py # 知识库路由
-│   ├── knowledge_graph_router.py # 知识图谱路由
-│   ├── system_router.py   # 系统管理路由
-│   ├── intent_recogition_router.py # 意图识别路由
-│   └── cache_management_router.py  # 缓存管理路由
 ├── model/                 # 数据模型层
-│   ├── base_models.py     # 基础模型
-│   ├── request_models.py  # 请求模型
-│   ├── response_models.py # 响应模型
-│   └── ...
 ├── handler/               # 核心处理器
-│   ├── guixiaoxirag_service.py # 核心服务
-│   ├── document_processor.py   # 文档处理器
-│   ├── knowledge_base_manager.py # 知识库管理器
-│   └── query_processor.py      # 查询处理器
 ├── core/                  # 核心算法
 │   ├── rag/              # RAG相关算法
 │   ├── intent_recognition/ # 意图识别
-│   ├── quick_qa_base/    # 优化的问答系统（基于RAG架构）
+│   ├── quick_qa_base/    # 优化的问答系统
 │   └── common/           # 通用组件（LLM客户端等）
 ├── common/                # 公共组件
-│   ├── config.py         # 配置管理
-│   ├── utils.py          # 工具函数
-│   ├── logging_utils.py  # 日志工具
-│   └── constants.py      # 常量定义
 ├── middleware/            # 中间件
-│   ├── cors_middleware.py # CORS中间件
-│   ├── logging_middleware.py # 日志中间件
-│   └── security_middleware.py # 安全中间件
 ├── initialize/            # 初始化模块
 ├── knowledgeBase/         # 知识库存储
-├── docs/                  # 文档目录
+├── examples/              # 使用示例
+│   └── qa_insert_example/ # 问答导入示例
+├── docs/                  # API文档
 ├── tests/                 # 测试目录
 └── main.py               # 应用入口
 ```
@@ -106,16 +86,18 @@ GuiXiaoXiRag/
 1. **克隆项目**
 ```bash
 git clone <repository-url>
-cd <repository>
+cd GuiXiaoXiRag
 ```
 
 2. **安装依赖**
 ```bash
+# 安装textract依赖
 unzip textract-16.5.zip
 cd textract-16.5
 pip install .
-
 cd ../
+
+# 安装项目依赖
 pip install -r requirements.txt
 ```
 
@@ -124,62 +106,17 @@ pip install -r requirements.txt
 # 复制配置文件模板
 cp .env.example .env
 
-# 编辑配置文件
+# 编辑配置文件，设置LLM和Embedding服务地址
 nano .env
 ```
 
 4. **启动服务**
 ```bash
-python main.py
-
-# 或者
+# 使用默认配置启动
 python start.py
-```
 
--- **start.py 启动配置**:
-```bash
-GuiXiaoXiRag 服务器启动脚本
-
-options:
-  -h, --help            show this help message and exit
-
-服务器配置:
-  --host HOST           服务器主机地址 (默认: 0.0.0.0)
-  --port PORT           服务器端口 (默认: 8002)
-  --workers WORKERS     工作进程数 (默认: 1)
-  --debug               启用调试模式
-  --reload              启用热重载 (开发模式)
-
-配置选项:
-  --env-file ENV_FILE   指定环境配置文件路径
-  --working-dir WORKING_DIR
-                        知识库工作目录
-  --log-level {DEBUG,INFO,WARNING,ERROR}
-                        日志级别
-
-模型配置:
-  --llm-api-base LLM_API_BASE
-                        LLM API 基础URL
-  --llm-model LLM_MODEL
-                        LLM 模型名称
-  --embedding-api-base EMBEDDING_API_BASE
-                        Embedding API 基础URL
-  --embedding-model EMBEDDING_MODEL
-                        Embedding 模型名称
-
-操作选项:
-  --config-only         仅检查配置，不启动服务器
-  --skip-deps-check     跳过依赖检查
-  --skip-env-check      跳过环境检查
-  --version             显示版本信息
-
-示例用法:
-  python start.py                           # 使用默认配置启动
-  python start.py --host 127.0.0.1 --port 8003  # 自定义主机和端口
-  python start.py --debug --reload          # 开启调试模式和热重载
-  python start.py --workers 4               # 设置工作进程数
-  python start.py --config-only             # 仅检查配置不启动服务
-  python start.py --env-file .env.prod      # 使用指定的环境文件
+# 或指定参数启动
+python start.py --host 0.0.0.0 --port 8002 --debug
 ```
 
 5. **验证安装**
@@ -187,7 +124,7 @@ options:
 # 访问健康检查端点
 curl http://localhost:8002/api/v1/health
 
-# 或在浏览器中访问
+# 访问API文档
 http://localhost:8002/docs
 ```
 
@@ -198,10 +135,9 @@ http://localhost:8002/docs
 ```bash
 # 应用配置
 APP_NAME="GuiXiaoXiRag FastAPI Service"
-APP_VERSION="2.0.0"
+APP_VERSION="0.1.0"
 HOST="0.0.0.0"
 PORT=8002
-DEBUG=false
 
 # LLM配置
 OPENAI_API_BASE="http://localhost:8100/v1"
@@ -215,12 +151,20 @@ OPENAI_EMBEDDING_MODEL="embedding_qwen"
 
 # 知识库配置
 WORKING_DIR="./knowledgeBase/default"
-MAX_FILE_SIZE=52428800  # 50MB
+QA_STORAGE_DIR="./Q_A_Base"
 
-# 日志配置
-LOG_LEVEL="INFO"
-LOG_DIR="./logs"
+# 网关协同配置
+ENABLE_PROXY_HEADERS=true
+TRUSTED_PROXY_IPS=["10.0.0.0/8","192.168.1.10"]
+USER_ID_HEADER=x-user-id
+CLIENT_ID_HEADER=x-client-id
+USER_TIER_HEADER=x-user-tier
+RATE_LIMIT_TIERS={"default":100,"free":60,"pro":600,"enterprise":3000}
+MIN_INTERVAL_PER_USER=0.5
 ```
+
+详细配置说明请参考 [.env.example](.env.example) 文件。
+网关对接规范请参考 [Java网关对接文档](docs/gateway_collaboration.md)。
 
 ## 使用指南
 
@@ -235,8 +179,6 @@ response = requests.post("http://localhost:8002/api/v1/query", json={
     "mode": "hybrid",
     "top_k": 10
 })
-
-print(response.json())
 ```
 
 ### 文档上传
@@ -253,58 +195,39 @@ with open("document.pdf", "rb") as f:
     )
 ```
 
-### 知识库管理
+### 固定问答系统使用
+
+固定问答系统是一个基于RAG架构的高精度问答模块，专门用于处理预设的问答对。它提供精确匹配和语义相似度匹配两种模式，适用于FAQ、客服问答、知识库问答等场景。
+
+#### 核心特性
+- **高精度匹配**: 基于向量相似度的语义匹配，支持0.98高阈值精确匹配
+- **多格式导入**: 支持JSON、CSV、Excel格式的批量问答对导入
+- **分类管理**: 支持问答对的分类组织和管理
+- **批量查询**: 支持单个和批量问答查询
+- **统计分析**: 提供详细的问答统计和分析功能
+
+#### 基本使用
 
 ```python
-# 创建知识库
-response = requests.post("http://localhost:8002/api/v1/knowledge-bases", json={
-    "name": "ai_research",
-    "description": "人工智能研究知识库",
-    "language": "中文"
-})
-
-# 切换知识库
-response = requests.post("http://localhost:8002/api/v1/knowledge-bases/switch", json={
-    "name": "ai_research"
-})
-```
-
-### 知识图谱查询
-
-```python
-# 获取知识图谱数据
-response = requests.post("http://localhost:8002/api/v1/knowledge-graph", json={
-    "node_label": "人工智能",
-    "max_depth": 3,
-    "max_nodes": 100
-})
-```
-
-### 问答系统使用
-
-```python
-# 问答系统健康检查
-response = requests.get("http://localhost:8002/api/v1/qa/health")
-print(response.json())
-
-# 创建问答对
+# 1. 创建单个问答对
 response = requests.post("http://localhost:8002/api/v1/qa/pairs", json={
     "question": "什么是人工智能？",
     "answer": "人工智能是计算机科学的一个分支，旨在创建能够执行通常需要人类智能的任务的系统。",
-    "category": "ai",
+    "category": "technology",
     "confidence": 0.95,
-    "keywords": ["人工智能", "AI"],
-    "source": "manual"
+    "keywords": ["人工智能", "AI", "机器学习"],
+    "source": "技术文档"
 })
 
-# 问答查询（高精度匹配，相似度阈值0.98）
+# 2. 问答查询（语义匹配）
 response = requests.post("http://localhost:8002/api/v1/qa/query", json={
     "question": "AI是什么？",
     "top_k": 3,
-    "min_similarity": 0.98
+    "min_similarity": 0.8,  # 相似度阈值
+    "category": "technology"  # 可选：指定分类
 })
 
-# 批量查询
+# 3. 批量查询
 response = requests.post("http://localhost:8002/api/v1/qa/query/batch", json={
     "questions": [
         "什么是机器学习？",
@@ -315,10 +238,58 @@ response = requests.post("http://localhost:8002/api/v1/qa/query/batch", json={
     "parallel": True
 })
 
-# 获取问答统计信息
+# 4. 批量导入问答对（支持JSON/CSV/Excel）
+with open("qa_data.json", "rb") as f:
+    files = {"file": f}
+    data = {
+        "file_type": "json",
+        "default_category": "technology",
+        "overwrite_existing": "false"  # 是否覆盖已存在的问答对
+    }
+    response = requests.post(
+        "http://localhost:8002/api/v1/qa/import",
+        files=files,
+        data=data
+    )
+
+# 5. 获取问答统计信息
 response = requests.get("http://localhost:8002/api/v1/qa/statistics")
-print(response.json())
+print(f"总问答对数: {response.json()['data']['total_pairs']}")
+print(f"分类统计: {response.json()['data']['categories']}")
+
+# 6. 获取问答对列表
+response = requests.get("http://localhost:8002/api/v1/qa/pairs", params={
+    "page": 1,
+    "page_size": 10,
+    "category": "technology"  # 可选：按分类筛选
+})
 ```
+
+#### 文件导入格式
+
+**JSON格式示例**:
+```json
+{
+  "qa_pairs": [
+    {
+      "question": "什么是人工智能？",
+      "answer": "人工智能是...",
+      "category": "technology",
+      "confidence": 0.95,
+      "keywords": ["AI", "人工智能"],
+      "source": "技术文档"
+    }
+  ]
+}
+```
+
+**CSV格式示例**:
+```csv
+question,answer,category,confidence,keywords,source
+"什么是人工智能？","人工智能是...","technology",0.95,"AI;人工智能","技术文档"
+```
+
+**Excel格式**: 支持多工作表，第一行为字段名，支持中文内容。
 
 ## API 文档
 
@@ -328,71 +299,81 @@ print(response.json())
 
 ### 详细文档
 - [完整API文档](docs/API_Documentation.md)
-- [测试示例](docs/API_Testing_Examples.md)
+- [网关对接规范](docs/gateway_collaboration.md)
+- [API测试示例](docs/API_Testing_Examples.md)
 
 ### 主要端点
 
 | 分类 | 端点 | 方法 | 描述 |
 |------|------|------|------|
 | 系统 | `/api/v1/health` | GET | 健康检查 |
-| 系统 | `/api/v1/system/status` | GET | 系统状态 |
-| 查询 | `/api/v1/query` | POST | 智能查询 |
-| 查询 | `/api/v1/query/batch` | POST | 批量查询 |
-| 文档 | `/api/v1/insert/text` | POST | 插入文本 |
-| 文档 | `/api/v1/insert/file` | POST | 上传文件 |
-| 知识库 | `/api/v1/knowledge-bases` | GET | 知识库列表 |
-| 知识库 | `/api/v1/knowledge-bases` | POST | 创建知识库 |
+| 查询 | `/api/v1/query` | POST | 智能查询（RAG检索） |
+| 文档 | `/api/v1/insert/file` | POST | 上传文件到知识库 |
+| 知识库 | `/api/v1/knowledge-bases` | GET/POST | 知识库管理 |
 | 图谱 | `/api/v1/knowledge-graph` | POST | 获取图谱数据 |
-| 图谱 | `/api/v1/knowledge-graph/stats` | GET | 图谱统计 |
-| 问答 | `/api/v1/qa/health` | GET | 问答系统健康检查 |
-| 问答 | `/api/v1/qa/pairs` | POST | 创建问答对 |
-| 问答 | `/api/v1/qa/query` | POST | 问答查询 |
-| 问答 | `/api/v1/qa/statistics` | GET | 问答统计 |
+| **固定问答** | `/api/v1/qa/health` | GET | 问答系统健康检查 |
+| **固定问答** | `/api/v1/qa/pairs` | POST | 创建问答对 |
+| **固定问答** | `/api/v1/qa/pairs` | GET | 获取问答对列表 |
+| **固定问答** | `/api/v1/qa/pairs/{pair_id}` | GET/PUT/DELETE | 问答对详情/更新/删除 |
+| **固定问答** | `/api/v1/qa/query` | POST | 单个问答查询 |
+| **固定问答** | `/api/v1/qa/query/batch` | POST | 批量问答查询 |
+| **固定问答** | `/api/v1/qa/import` | POST | 批量导入问答对 |
+| **固定问答** | `/api/v1/qa/export` | GET | 导出问答对 |
+| **固定问答** | `/api/v1/qa/statistics` | GET | 问答统计信息 |
+| **固定问答** | `/api/v1/qa/categories` | GET | 获取分类列表 |
 
-## 开发指南
+## 示例和测试
 
-### 项目结构说明
+### 固定问答导入示例
+查看 [examples/qa_insert_example](examples/qa_insert_example/) 目录，包含完整的问答导入解决方案：
 
-- **api/**: 业务逻辑处理层，包含各功能模块的API处理器
-- **routers/**: FastAPI路由定义，负责请求路由和参数验证
-- **model/**: 数据模型定义，包括请求/响应模型和基础模型
-- **handler/**: 核心业务处理器，实现具体的业务逻辑
-- **core/**: 核心算法实现，包括RAG、意图识别等
-- **common/**: 公共组件，包括配置、工具、常量等
-- **middleware/**: 中间件，处理跨切面关注点
+#### 📋 模板文件
+- `qa_template.json` - JSON格式模板（包含字段说明和元数据）
+- `qa_template.csv` - CSV格式模板（简洁格式）
+- `qa_template.xlsx` - Excel格式模板（多工作表，包含字段说明）
 
-### 添加新功能
+#### 📊 示例数据
+- `qa_example.json` - 15条高质量问答示例（技术、教育、效率等分类）
+- `qa_example.csv` - 相同数据的CSV格式
+- `qa_example.xlsx` - 相同数据的Excel格式（包含统计信息）
 
-1. **定义数据模型** (model/)
-2. **实现业务逻辑** (api/)
-3. **添加路由定义** (routers/)
-4. **注册路由** (main.py)
-5. **编写测试** (tests/)
+#### 🛠️ 导入工具
+- `import_example.py` - 单文件导入示例脚本
+- `batch_import.py` - 批量导入脚本
+- `demo_complete.py` - 完整功能演示脚本
 
-### 代码规范
+#### 📖 使用文档
+- `README.md` - 详细使用说明
+- `USAGE_GUIDE.md` - 快速上手指南
 
-- 遵循 PEP 8 代码风格
-- 使用类型注解
-- 编写完整的文档字符串
-- 添加适当的错误处理
-- 编写单元测试
+#### 快速开始
+```bash
+# 进入示例目录
+cd examples/qa_insert_example
+
+# 运行完整演示
+python demo_complete.py
+
+# 或者批量导入所有格式
+python batch_import.py
+```
+
+### 运行测试
+
+```bash
+# 安装测试依赖
+pip install pytest pytest-asyncio
+
+# 运行所有测试
+pytest tests/ -v
+
+# 运行API测试
+python tests/test_api_comprehensive.py
+```
 
 ## 部署指南
 
 ### Docker 部署
-
-```dockerfile
-FROM python:3.9-slim
-
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-
-COPY . .
-EXPOSE 8002
-
-CMD ["python", "main.py"]
-```
 
 ```bash
 # 构建镜像
@@ -406,37 +387,7 @@ docker run -p 8002:8002 -v $(pwd)/knowledgeBase:/app/knowledgeBase guixiaoxirag
 
 ```bash
 # 使用 Gunicorn
-pip install gunicorn
 gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8002
-
-# 使用 Supervisor 管理进程
-# 配置 nginx 反向代理
-# 设置 SSL 证书
-```
-
-## 性能优化
-
-### 系统优化
-- 启用缓存机制
-- 调整并发参数
-- 优化数据库查询
-- 使用连接池
-
-### 查询优化
-- 选择合适的查询模式
-- 设置合理的 top_k 值
-- 使用批量查询
-- 启用重排序
-
-### 资源监控
-```python
-# 获取性能指标
-response = requests.get("http://localhost:8002/api/v1/metrics")
-print(response.json())
-
-# 获取缓存统计
-response = requests.get("http://localhost:8002/api/v1/cache/stats")
-print(response.json())
 ```
 
 ## 故障排除
@@ -458,44 +409,6 @@ print(response.json())
    - 验证文件格式支持
    - 检查磁盘空间
 
-### 日志查看
-
-```bash
-# 查看应用日志
-tail -f logs/guixiaoxirag_service.log
-
-# 查看系统日志
-curl http://localhost:8002/api/v1/logs?lines=100
-```
-
-## 测试
-
-### 运行测试
-
-```bash
-# 安装测试依赖
-pip install pytest pytest-asyncio
-
-# 运行所有测试
-pytest tests/ -v
-
-# 运行特定测试
-pytest tests/test_api_comprehensive.py -v
-
-# 生成覆盖率报告
-pytest --cov=. tests/
-```
-
-### API 测试
-
-```bash
-# 运行综合API测试
-python tests/test_api_comprehensive.py
-
-# 使用curl测试
-curl -X GET http://localhost:8002/api/v1/health
-```
-
 ## 贡献指南
 
 1. Fork 项目
@@ -510,20 +423,28 @@ curl -X GET http://localhost:8002/api/v1/health
 
 ## 更新日志
 
-### v2.0.0 (当前版本)
+### v0.1.0 (当前版本)
 - 重构API架构，提供更清晰的模块化设计
-- 增强查询功能，支持多种查询模式
+- 增强查询功能，支持多种查询模式（local/global/hybrid/naive/mix/bypass）
 - 完善知识库管理功能
 - 新增意图识别和安全检查
-- 优化性能和缓存机制
-- 完善错误处理和日志记录
-- **新增优化的问答系统**: 基于RAG架构，支持0.98高精度相似度匹配
-- **统一embedding配置**: 使用core.common.llm_client统一管理embedding服务
-- **向量化存储优化**: 使用NanoVectorDB进行高效向量存储和检索
+- **🎯 新增固定问答系统**:
+  - 基于RAG架构的高精度问答匹配（支持0.98高阈值）
+  - 支持JSON/CSV/Excel格式的批量导入
+  - 提供完整的问答对CRUD操作
+  - 支持分类管理和统计分析
+  - 包含完整的导入示例和工具脚本
+- **🔗 网关协同**: 支持用户优先限流、分层限流与最小请求间隔
+- **⚡ 统一embedding配置**: 使用core.common.llm_client统一管理embedding服务
+- **📊 性能优化**: 多层缓存机制，提升查询响应速度
 
-### v1.x.x
-- 基础功能实现
-- 初始版本发布
+---
+
+**更多详细信息请参考:**
+- [API 文档](docs/API_Documentation.md)
+- [网关对接规范](docs/gateway_collaboration.md)
+- [问答导入示例](examples/qa_insert_example/)
+
 
 ## 依赖项说明
 
@@ -545,486 +466,3 @@ curl -X GET http://localhost:8002/api/v1/health
 - **psutil**: 系统和进程监控
 - **aiofiles**: 异步文件操作
 - **python-multipart**: 文件上传支持
-
-## 配置详解
-
-### 环境变量配置
-
-创建 `.env` 文件并配置以下参数：
-
-```bash
-# ===================
-# 应用基础配置
-# ===================
-APP_NAME="GuiXiaoXiRag FastAPI Service"
-APP_VERSION="2.0.0"
-HOST="0.0.0.0"
-PORT=8002
-DEBUG=false
-WORKERS=1
-
-# ===================
-# LLM服务配置
-# ===================
-# LLM API配置
-OPENAI_API_BASE="http://localhost:8100/v1"
-OPENAI_CHAT_API_KEY="your_api_key_here"
-OPENAI_CHAT_MODEL="qwen14b"
-
-# Embedding API配置
-OPENAI_EMBEDDING_API_BASE="http://localhost:8200/v1"
-OPENAI_EMBEDDING_API_KEY="your_api_key_here"
-OPENAI_EMBEDDING_MODEL="embedding_qwen"
-
-# LLM参数配置
-LLM_ENABLED=true
-LLM_PROVIDER="openai"
-LLM_TEMPERATURE=0.1
-LLM_MAX_TOKENS=2048
-LLM_TIMEOUT=30
-
-# Embedding参数配置
-EMBEDDING_ENABLED=true
-EMBEDDING_PROVIDER="openai"
-EMBEDDING_DIM=2560
-EMBEDDING_TIMEOUT=30
-
-# ===================
-# 问答系统配置
-# ===================
-QA_SIMILARITY_THRESHOLD=0.98  # 高精度相似度阈值
-QA_MAX_RESULTS=10
-QA_STORAGE_DIR="./Q&A_Base"
-
-# ===================
-# 知识库配置
-# ===================
-WORKING_DIR="./knowledgeBase/default"
-MAX_TOKEN_SIZE=8192
-
-# ===================
-# 文件处理配置
-# ===================
-MAX_FILE_SIZE=52428800  # 50MB
-UPLOAD_DIR="./uploads"
-ALLOWED_FILE_TYPES=".txt,.pdf,.docx,.doc,.md,.json,.xml,.csv"
-
-# ===================
-# 性能配置
-# ===================
-ENABLE_CACHE=true
-CACHE_TTL=3600
-MAX_CONCURRENT_REQUESTS=100
-
-# ===================
-# 安全配置
-# ===================
-CORS_ORIGINS="*"
-CORS_METHODS="*"
-CORS_HEADERS="*"
-
-# ===================
-# 日志配置
-# ===================
-LOG_LEVEL="INFO"
-LOG_DIR="./logs"
-
-# ===================
-# Streamlit配置（可选）
-# ===================
-STREAMLIT_HOST="0.0.0.0"
-STREAMLIT_PORT=8501
-STREAMLIT_API_URL="http://localhost:8002"
-```
-
-### 高级配置选项
-
-#### Azure OpenAI 配置
-```bash
-# Azure特定配置
-LLM_PROVIDER="azure"
-AZURE_API_VERSION="2023-12-01-preview"
-AZURE_DEPLOYMENT_NAME="gpt-35-turbo"
-```
-
-#### Ollama 配置
-```bash
-# Ollama本地部署配置
-LLM_PROVIDER="ollama"
-OLLAMA_BASE_URL="http://localhost:11434"
-OLLAMA_CHAT_MODEL="llama2"
-OLLAMA_EMBEDDING_MODEL="nomic-embed-text"
-```
-
-#### Rerank 配置
-```bash
-# 重排序服务配置
-RERANK_ENABLED=false
-RERANK_PROVIDER="openai"
-RERANK_MODEL="rerank-multilingual-v3.0"
-RERANK_TOP_K=10
-```
-
-## 详细使用示例
-
-### 1. 完整的查询流程
-
-```python
-import requests
-import json
-
-class GuiXiaoXiRagClient:
-    def __init__(self, base_url="http://localhost:8002"):
-        self.base_url = base_url
-        self.api_base = f"{base_url}/api/v1"
-        self.session = requests.Session()
-
-    def health_check(self):
-        """健康检查"""
-        response = self.session.get(f"{self.api_base}/health")
-        return response.json()
-
-    def query(self, query_text, mode="hybrid", **kwargs):
-        """智能查询"""
-        data = {
-            "query": query_text,
-            "mode": mode,
-            **kwargs
-        }
-        response = self.session.post(f"{self.api_base}/query", json=data)
-        return response.json()
-
-    def insert_text(self, text, knowledge_base=None, **kwargs):
-        """插入文本"""
-        data = {
-            "text": text,
-            "knowledge_base": knowledge_base,
-            **kwargs
-        }
-        response = self.session.post(f"{self.api_base}/insert/text", json=data)
-        return response.json()
-
-    def upload_file(self, file_path, knowledge_base=None, **kwargs):
-        """上传文件"""
-        with open(file_path, "rb") as f:
-            files = {"file": f}
-            data = {"knowledge_base": knowledge_base, **kwargs}
-            response = self.session.post(
-                f"{self.api_base}/insert/file",
-                files=files,
-                data=data
-            )
-        return response.json()
-
-    def create_knowledge_base(self, name, description="", **config):
-        """创建知识库"""
-        data = {
-            "name": name,
-            "description": description,
-            "config": config
-        }
-        response = self.session.post(f"{self.api_base}/knowledge-bases", json=data)
-        return response.json()
-
-    def switch_knowledge_base(self, name):
-        """切换知识库"""
-        data = {"name": name}
-        response = self.session.post(f"{self.api_base}/knowledge-bases/switch", json=data)
-        return response.json()
-
-# 使用示例
-client = GuiXiaoXiRagClient()
-
-# 1. 检查服务状态
-health = client.health_check()
-print(f"服务状态: {health}")
-
-# 2. 创建知识库
-kb_result = client.create_knowledge_base(
-    name="ai_tutorial",
-    description="人工智能教程知识库",
-    chunk_size=1024,
-    chunk_overlap=50
-)
-print(f"知识库创建: {kb_result}")
-
-# 3. 切换到新知识库
-switch_result = client.switch_knowledge_base("ai_tutorial")
-print(f"知识库切换: {switch_result}")
-
-# 4. 插入文档内容
-texts = [
-    "人工智能（AI）是计算机科学的一个分支，旨在创建能够执行通常需要人类智能的任务的系统。",
-    "机器学习是人工智能的一个子集，它使计算机能够在没有明确编程的情况下学习和改进。",
-    "深度学习是机器学习的一个分支，使用神经网络来模拟人脑的学习过程。"
-]
-
-for i, text in enumerate(texts):
-    result = client.insert_text(
-        text=text,
-        doc_id=f"ai_doc_{i+1}",
-        knowledge_base="ai_tutorial"
-    )
-    print(f"文档插入 {i+1}: {result.get('success')}")
-
-# 5. 执行查询
-queries = [
-    "什么是人工智能？",
-    "机器学习和深度学习的区别是什么？",
-    "如何开始学习AI？"
-]
-
-for query in queries:
-    result = client.query(
-        query_text=query,
-        mode="hybrid",
-        top_k=5,
-        knowledge_base="ai_tutorial"
-    )
-    print(f"\n查询: {query}")
-    if result.get('success'):
-        answer = result.get('data', {}).get('answer', '')
-        print(f"回答: {answer[:200]}...")
-    else:
-        print(f"查询失败: {result.get('message')}")
-```
-
-### 2. 批量文档处理
-
-```python
-import os
-import glob
-
-def batch_upload_documents(client, directory_path, knowledge_base):
-    """批量上传目录中的文档"""
-    supported_extensions = ['.txt', '.pdf', '.docx', '.md', '.json']
-
-    results = []
-    for ext in supported_extensions:
-        files = glob.glob(os.path.join(directory_path, f"*{ext}"))
-
-        for file_path in files:
-            try:
-                result = client.upload_file(
-                    file_path=file_path,
-                    knowledge_base=knowledge_base,
-                    extract_metadata=True
-                )
-                results.append({
-                    'file': os.path.basename(file_path),
-                    'success': result.get('success'),
-                    'message': result.get('message')
-                })
-                print(f"上传 {os.path.basename(file_path)}: {result.get('success')}")
-            except Exception as e:
-                results.append({
-                    'file': os.path.basename(file_path),
-                    'success': False,
-                    'message': str(e)
-                })
-                print(f"上传失败 {os.path.basename(file_path)}: {e}")
-
-    return results
-
-# 使用示例
-upload_results = batch_upload_documents(
-    client=client,
-    directory_path="./documents",
-    knowledge_base="ai_tutorial"
-)
-
-# 统计结果
-successful = sum(1 for r in upload_results if r['success'])
-total = len(upload_results)
-print(f"\n批量上传完成: {successful}/{total} 成功")
-```
-
-### 3. 知识图谱操作
-
-```python
-def explore_knowledge_graph(client, node_label="人工智能"):
-    """探索知识图谱"""
-
-    # 获取图谱数据
-    graph_data = client.session.post(f"{client.api_base}/knowledge-graph", json={
-        "node_label": node_label,
-        "max_depth": 3,
-        "max_nodes": 100,
-        "include_metadata": True
-    }).json()
-
-    if graph_data.get('success'):
-        data = graph_data.get('data', {})
-        print(f"节点数量: {data.get('node_count', 0)}")
-        print(f"边数量: {data.get('edge_count', 0)}")
-
-        # 显示部分节点信息
-        nodes = data.get('nodes', [])[:5]
-        for node in nodes:
-            print(f"节点: {node.get('label')} (ID: {node.get('id')})")
-
-    # 获取图谱统计
-    stats = client.session.get(f"{client.api_base}/knowledge-graph/stats").json()
-    if stats.get('success'):
-        stats_data = stats.get('data', {})
-        print(f"\n图谱统计:")
-        print(f"  总节点数: {stats_data.get('node_count', 0)}")
-        print(f"  总边数: {stats_data.get('edge_count', 0)}")
-        print(f"  图谱密度: {stats_data.get('density', 0):.4f}")
-
-    # 生成可视化
-    viz_result = client.session.post(f"{client.api_base}/knowledge-graph/visualize", json={
-        "max_nodes": 50,
-        "layout": "spring",
-        "node_size_field": "degree"
-    }).json()
-
-    if viz_result.get('success'):
-        viz_data = viz_result.get('data', {})
-        html_path = viz_data.get('html_file_path')
-        print(f"可视化文件已生成: {html_path}")
-
-# 使用示例
-explore_knowledge_graph(client)
-```
-
-## 监控和维护
-
-### 系统监控脚本
-
-```python
-import time
-import psutil
-import requests
-from datetime import datetime
-
-class SystemMonitor:
-    def __init__(self, api_base="http://localhost:8002/api/v1"):
-        self.api_base = api_base
-        self.session = requests.Session()
-
-    def check_system_health(self):
-        """检查系统健康状态"""
-        try:
-            # API健康检查
-            health_response = self.session.get(f"{self.api_base}/health", timeout=5)
-            api_healthy = health_response.status_code == 200
-
-            # 系统资源检查
-            cpu_percent = psutil.cpu_percent(interval=1)
-            memory = psutil.virtual_memory()
-            disk = psutil.disk_usage('/')
-
-            # 获取API指标
-            metrics_response = self.session.get(f"{self.api_base}/metrics")
-            api_metrics = metrics_response.json() if metrics_response.status_code == 200 else {}
-
-            status = {
-                'timestamp': datetime.now().isoformat(),
-                'api_healthy': api_healthy,
-                'system': {
-                    'cpu_percent': cpu_percent,
-                    'memory_percent': memory.percent,
-                    'memory_available_gb': memory.available / (1024**3),
-                    'disk_percent': disk.percent,
-                    'disk_free_gb': disk.free / (1024**3)
-                },
-                'api_metrics': api_metrics.get('data', {}) if api_metrics else {}
-            }
-
-            return status
-
-        except Exception as e:
-            return {
-                'timestamp': datetime.now().isoformat(),
-                'error': str(e),
-                'api_healthy': False
-            }
-
-    def monitor_loop(self, interval=60):
-        """监控循环"""
-        print("开始系统监控...")
-
-        while True:
-            status = self.check_system_health()
-
-            print(f"\n[{status['timestamp']}]")
-            print(f"API状态: {'健康' if status.get('api_healthy') else '异常'}")
-
-            if 'system' in status:
-                sys_info = status['system']
-                print(f"CPU使用率: {sys_info['cpu_percent']:.1f}%")
-                print(f"内存使用率: {sys_info['memory_percent']:.1f}%")
-                print(f"磁盘使用率: {sys_info['disk_percent']:.1f}%")
-
-            if 'api_metrics' in status and status['api_metrics']:
-                metrics = status['api_metrics']
-                print(f"请求总数: {metrics.get('request_count', 0)}")
-                print(f"错误率: {metrics.get('error_rate', 0):.2%}")
-                print(f"平均响应时间: {metrics.get('avg_response_time', 0):.2f}ms")
-
-            # 检查告警条件
-            if 'system' in status:
-                sys_info = status['system']
-                if sys_info['cpu_percent'] > 80:
-                    print("⚠️  CPU使用率过高!")
-                if sys_info['memory_percent'] > 85:
-                    print("⚠️  内存使用率过高!")
-                if sys_info['disk_percent'] > 90:
-                    print("⚠️  磁盘空间不足!")
-
-            if not status.get('api_healthy'):
-                print("🚨 API服务异常!")
-
-            time.sleep(interval)
-
-# 使用示例
-if __name__ == "__main__":
-    monitor = SystemMonitor()
-
-    # 单次检查
-    status = monitor.check_system_health()
-    print(json.dumps(status, indent=2, ensure_ascii=False))
-
-    # 持续监控（可选）
-    # monitor.monitor_loop(interval=30)
-```
-
-### 缓存管理脚本
-
-```python
-def manage_cache(client):
-    """缓存管理"""
-
-    # 获取缓存统计
-    cache_stats = client.session.get(f"{client.api_base}/cache/stats").json()
-
-    if cache_stats.get('success'):
-        stats_data = cache_stats.get('data', {})
-        total_memory = stats_data.get('total_memory_mb', 0)
-
-        print(f"缓存总内存使用: {total_memory:.2f} MB")
-
-        caches = stats_data.get('caches', {})
-        for cache_type, cache_info in caches.items():
-            size_mb = cache_info.get('size_mb', 0)
-            hit_rate = cache_info.get('hit_rate', 0)
-            print(f"  {cache_type}: {size_mb:.2f} MB, 命中率: {hit_rate:.2%}")
-
-        # 如果内存使用过高，清理缓存
-        if total_memory > 1000:  # 超过1GB
-            print("内存使用过高，开始清理缓存...")
-
-            # 清理特定类型缓存
-            for cache_type in ['llm', 'vector']:
-                clear_result = client.session.delete(
-                    f"{client.api_base}/cache/clear/{cache_type}"
-                ).json()
-
-                if clear_result.get('success'):
-                    freed_mb = clear_result.get('data', {}).get('freed_memory_mb', 0)
-                    print(f"清理 {cache_type} 缓存，释放 {freed_mb:.2f} MB")
-
-# 使用示例
-manage_cache(client)
-```

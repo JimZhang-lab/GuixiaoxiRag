@@ -7,7 +7,7 @@
 from .optimized_qa_manager import OptimizedQAManager
 from .qa_vector_storage import QAVectorStorage, QAPair
 
-__version__ = "2.0.0"
+__version__ = "0.1.0"
 __author__ = "GuiXiaoXiRag Team"
 __description__ = "基于RAG架构的优化问答系统"
 

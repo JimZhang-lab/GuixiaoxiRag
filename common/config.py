@@ -4,7 +4,7 @@ GuiXiaoXiRag FastAPI服务配置文件
 """
 import os
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Dict
 try:
     from pydantic_settings import BaseSettings
     from pydantic import Field
@@ -41,7 +41,7 @@ class Settings(BaseSettings):
 
     # 应用信息
     app_name: str = Field(default="GuiXiaoXiRag FastAPI Service", description="应用名称")
-    app_version: str = Field(default="2.0.0", description="应用版本")
+    app_version: str = Field(default="0.1.0", description="应用版本")
 
     # 服务配置
     host: str = Field(default="0.0.0.0", description="服务器主机地址")
@@ -51,6 +51,7 @@ class Settings(BaseSettings):
 
     # GuiXiaoXiRag配置
     working_dir: str = Field(default="./knowledgeBase/default", description="知识库工作目录")
+    qa_storage_dir: Optional[str] = Field(default=None, description="QA存储目录（默认使用 working_dir/Q_A_Base）")
 
     # 大模型配置 - 支持用户自定义，未配置时使用默认值
     openai_api_base: str = Field(default="http://localhost:8100/v1", description="OpenAI API 基础URL")
@@ -59,24 +60,26 @@ class Settings(BaseSettings):
     openai_embedding_api_key: str = Field(default="your_api_key_here", description="OpenAI Embedding API 密钥")
     openai_chat_model: str = Field(default="qwen14b", description="OpenAI Chat 模型")
     openai_embedding_model: str = Field(default="embedding_qwen", description="OpenAI Embedding 模型")
+    openai_rerank_api_base: str = Field(default="http://localhost:8100/v1", description="OpenAI API Rerank URL")
+    openai_rerank_api_base: str = Field(default="your_api_key_here", description="OpenAI Rerank API 基础URL")
 
     # LLM意图识别配置
     llm_enabled: bool = Field(default=True, description="启用LLM意图识别")
     llm_provider: str = Field(default="openai", description="LLM提供商: openai, azure, ollama, custom")
     llm_temperature: float = Field(default=0.1, description="LLM温度参数")
     llm_max_tokens: int = Field(default=2048, description="LLM最大token数")
-    llm_timeout: int = Field(default=30, description="LLM请求超时时间(秒)")
+    llm_timeout: int = Field(default=240, description="LLM请求超时时间(秒)")
 
     # Embedding配置
     embedding_enabled: bool = Field(default=True, description="启用Embedding服务")
     embedding_provider: str = Field(default="openai", description="Embedding提供商: openai, azure, ollama, custom")
-    embedding_timeout: int = Field(default=30, description="Embedding请求超时时间(秒)")
+    embedding_timeout: int = Field(default=240, description="Embedding请求超时时间(秒)")
 
     # Rerank配置
     rerank_enabled: bool = Field(default=False, description="启用Rerank服务")
     rerank_provider: str = Field(default="openai", description="Rerank提供商: openai, azure, custom")
     rerank_model: str = Field(default="rerank-multilingual-v3.0", description="Rerank模型")
-    rerank_timeout: int = Field(default=30, description="Rerank请求超时时间(秒)")
+    rerank_timeout: int = Field(default=240, description="Rerank请求超时时间(秒)")
     rerank_top_k: int = Field(default=10, description="Rerank返回的top-k结果数量")
 
     # 可选的自定义配置
@@ -121,6 +124,28 @@ class Settings(BaseSettings):
     cors_origins: List[str] = Field(default=["*"], description="CORS允许的源")
     cors_methods: List[str] = Field(default=["*"], description="CORS允许的方法")
     cors_headers: List[str] = Field(default=["*"], description="CORS允许的头部")
+
+    # 速率限制（SecurityMiddleware）
+    rate_limit_requests: int = Field(default=100, description="每个实体（用户或IP）在窗口内的最大请求数")
+    rate_limit_window: int = Field(default=60, description="速率限制时间窗口秒数")
+    max_request_size: int = Field(default=50 * 1024 * 1024, description="最大请求体字节数")
+
+    # 代理与用户标识（与 Java 网关配合）
+    enable_proxy_headers: bool = Field(default=True, description="是否信任来自受信任代理的转发头部")
+    trusted_proxy_ips: List[str] = Field(default_factory=list, description="受信任代理IP或CIDR列表（例如 10.0.0.0/8, 192.168.1.10）")
+    user_id_header: str = Field(default="x-user-id", description="用户ID头部名（Java网关设置）")
+    client_id_header: str = Field(default="x-client-id", description="客户端ID头部名（Java网关设置）")
+    api_key_header: str = Field(default="x-api-key", description="API Key头部名")
+    authorization_header: str = Field(default="authorization", description="Authorization头部名")
+    user_tier_header: str = Field(default="x-user-tier", description="用户套餐/等级头部名（free/pro/enterprise等）")
+
+    # 速率限制分层（可由Java网关注入 x-user-tier）
+    rate_limit_tiers: Dict[str, int] = Field(
+        default_factory=lambda: {"default": 100, "free": 60, "pro": 600, "enterprise": 3000},
+        description="按用户等级的每分钟请求上限映射"
+    )
+    rate_limit_default_tier: str = Field(default="default", description="默认用户等级")
+    min_interval_per_user: float = Field(default=0.0, description="同一用户两次请求的最小间隔（秒），0表示不限制")
 
     class Config:
         # 动态查找 .env 文件
@@ -318,6 +343,7 @@ def get_embedding_config():
             "api_base": settings.openai_embedding_api_base,
             "api_key": settings.openai_embedding_api_key,
             "model": settings.openai_embedding_model,
+            "dim": settings.embedding_dim,
         }
     elif provider == "azure":
         return {

@@ -1,0 +1,42 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "description": "问答库导入模板文件",
+    "created_at": "2025-08-18",
+    "total_records": 0,
+    "default_category": "general",
+    "encoding": "UTF-8"
+  },
+  "qa_pairs": [
+    {
+      "question": "这里填写问题内容",
+      "answer": "这里填写答案内容",
+      "category": "分类名称（如：technology, general, faq等）",
+      "confidence": 0.9,
+      "keywords": ["关键词1", "关键词2", "关键词3"],
+      "source": "来源信息（可选）"
+    },
+    {
+      "question": "第二个问题示例",
+      "answer": "第二个答案示例",
+      "category": "general",
+      "confidence": 0.8,
+      "keywords": [],
+      "source": ""
+    }
+  ],
+  "import_settings": {
+    "skip_duplicate_check": false,
+    "duplicate_threshold": 0.98,
+    "auto_generate_keywords": true,
+    "validate_before_import": true
+  },
+  "field_descriptions": {
+    "question": "问题内容，必填字段，长度1-2000字符",
+    "answer": "答案内容，必填字段，长度1-10000字符",
+    "category": "分类名称，必填字段，用于组织问答对",
+    "confidence": "置信度，可选字段，范围0.0-1.0，默认0.8",
+    "keywords": "关键词数组，可选字段，用于提高搜索准确性",
+    "source": "来源信息，可选字段，记录问答对的来源"
+  }
+}

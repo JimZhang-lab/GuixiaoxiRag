@@ -93,6 +93,9 @@ def create_openai_async_client(
             "OPENAI_API_BASE", "https://api.openai.com/v1"
         )
 
+    # Inject default timeout from environment if not provided in configs
+    merged_configs.setdefault("timeout", int(os.environ.get("LLM_TIMEOUT", "240")))
+
     return AsyncOpenAI(**merged_configs)
 
 
