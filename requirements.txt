@@ -1,3 +1,4 @@
+openpyxl
 aiofiles==24.1.0
 aiohappyeyeballs==2.6.1
 aiohttp==3.12.15
@@ -43,6 +44,7 @@ networkx==3.5
 numpy==2.3.2
 olefile==0.47
 openai==1.99.9
+openpyxl==3.1.5
 packaging==25.0
 pandas==2.3.1
 passlib==1.7.4
