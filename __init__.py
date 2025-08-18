@@ -15,8 +15,3 @@ from .main import app
 from .common.config import settings
 
 __all__ = ["app", "settings"]
-
-
-```
-检查重复路径问题 C:\Users\59317\Desktop\test\GuixiaoxiRag\logs\logs
-```
