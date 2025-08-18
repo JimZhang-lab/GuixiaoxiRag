@@ -135,6 +135,7 @@ test_kb/
 .idea/
 examples/reference_project/*
 Q_A_Base/*
+data/*
 # 临时文件
 *.tmp
 *.temp

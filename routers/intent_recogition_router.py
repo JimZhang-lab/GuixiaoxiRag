@@ -1,13 +1,15 @@
 """
-意图识别路由 - 重构版本
-使用分离的API逻辑和数据模型
+意图识别路由 - 核心功能
+提供意图分析、安全检查和状态查询功能
+
+注意：意图类型和安全级别配置相关接口已移至 /api/v1/intent-config 路由
 """
 from fastapi import APIRouter, HTTPException
 
 from common.logging_utils import logger_manager
 from api.intent_recogition_api import (
     health_check_api, analyze_intent_api, safety_check_api,
-    get_status_api, get_intent_types_api, get_safety_levels_api
+    get_status_api
 )
 from model.request_models import IntentAnalysisRequest, SafetyCheckRequest
 from model.response_models import (
@@ -76,30 +78,8 @@ async def get_status():
         raise HTTPException(status_code=500, detail=f"状态获取失败: {str(e)}")
 
 
-@router.get("/intent-types",
-            summary="意图类型列表",
-            description="获取支持的意图类型列表")
-async def get_intent_types():
-    """获取意图类型列表"""
-    try:
-        result = await get_intent_types_api()
-        return result
-    except Exception as e:
-        logger.error(f"意图类型获取失败: {e}")
-        raise HTTPException(status_code=500, detail=f"意图类型获取失败: {str(e)}")
-
-
-@router.get("/safety-levels",
-            summary="安全级别列表",
-            description="获取支持的安全级别列表")
-async def get_safety_levels():
-    """获取安全级别列表"""
-    try:
-        result = await get_safety_levels_api()
-        return result
-    except Exception as e:
-        logger.error(f"安全级别获取失败: {e}")
-        raise HTTPException(status_code=500, detail=f"安全级别获取失败: {str(e)}")
+# 注意：意图类型和安全级别列表已移至 /api/v1/intent-config 路由
+# 这些接口在配置管理路由中提供更完整的信息
 
 
 # 导出路由

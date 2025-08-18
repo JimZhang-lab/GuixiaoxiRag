@@ -51,22 +51,28 @@ class QAAPIHandler:
         try:
             # 导入QAManager
             from handler.qa_handler import QAHandler
-            
+
             # 创建QA处理器
             self.qa_handler = QAHandler()
             success = await self.qa_handler.initialize()
-            
-            if success:
+
+            if success and self.qa_handler.qa_manager:
                 self.qa_manager = self.qa_handler.qa_manager
                 self.initialized = True
                 logger.info("QA API Handler initialized successfully")
                 return True
             else:
-                logger.error("Failed to initialize QA Handler")
+                logger.error("Failed to initialize QA Handler or QA Manager is None")
+                # 确保 qa_manager 不是 None，即使初始化失败
+                self.qa_manager = None
+                self.initialized = False
                 return False
-                
+
         except Exception as e:
             logger.error(f"Error initializing QA API Handler: {e}")
+            # 确保 qa_manager 不是 None，即使出现异常
+            self.qa_manager = None
+            self.initialized = False
             return False
     
     def _update_stats(self, success: bool, response_time: float):
@@ -403,15 +409,18 @@ class QAAPIHandler:
         
         try:
             stats = self.qa_manager.get_statistics()
-            
+
+            # 安全地获取统计信息
+            storage_stats = stats.get("data", {}).get("storage_stats", {})
+
             qa_statistics = QAStatistics(
-                total_pairs=stats["storage_stats"]["total_pairs"],
-                categories=stats["storage_stats"]["categories"],
-                average_confidence=stats["storage_stats"]["average_confidence"],
-                similarity_threshold=stats["storage_stats"]["similarity_threshold"],
-                vector_index_size=stats["storage_stats"]["vector_index_size"],
-                embedding_dim=stats["storage_stats"]["embedding_dim"],
-                query_stats=stats["storage_stats"]["query_stats"]
+                total_pairs=storage_stats.get("total_pairs", 0),
+                categories=storage_stats.get("categories", {}),
+                average_confidence=storage_stats.get("average_confidence", 0.0),
+                similarity_threshold=storage_stats.get("similarity_threshold", 0.98),
+                vector_index_size=storage_stats.get("vector_index_size", 0),
+                embedding_dim=storage_stats.get("embedding_dim", 0),
+                query_stats=storage_stats.get("query_stats", {})
             )
             
             response_time = time.time() - start_time
@@ -450,18 +459,22 @@ class QAAPIHandler:
                 )
             else:
                 stats = self.qa_manager.get_statistics()
-                
+
                 # 计算错误率
                 total_requests = self.api_stats["total_requests"]
                 error_rate = 0.0
                 if total_requests > 0:
                     error_rate = (self.api_stats["failed_requests"] / total_requests) * 100
-                
+
+                # 安全地获取统计信息
+                storage_stats = stats.get("data", {}).get("storage_stats", {})
+                total_pairs = storage_stats.get("total_pairs", 0)
+
                 health_check = QAHealthCheck(
                     status="healthy",
                     qa_storage_status="ready",
                     embedding_status="ready",
-                    total_qa_pairs=stats["storage_stats"]["total_pairs"],
+                    total_qa_pairs=total_pairs,
                     avg_response_time=self.api_stats["avg_response_time"],
                     error_rate=error_rate
                 )

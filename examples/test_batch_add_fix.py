@@ -23,7 +23,7 @@ async def test_batch_add():
             namespace="test",
             similarity_threshold=0.98,
             max_results=10,
-            working_dir="./Q_A_Base"
+            working_dir="./data/Q_A_Base"
         )
         
         print("✅ OptimizedQAManager创建成功")

@@ -31,7 +31,7 @@ GuiXiaoXiRag 是一个基于 FastAPI 的智能知识问答系统，集成了知�
 - **智能查询**: 支持多种查询模式（local/global/hybrid/naive/mix/bypass）
 - **知识图谱**: 自动构建和管理知识图谱，支持可视化展示
 - **文档管理**: 支持多种格式文档的上传、处理和索引
-- **意图识别**: 智能分析查询意图和安全级别
+- **意图识别**: 智能分析查询意图和安全级别，支持动态配置管理
 - **多知识库**: 支持创建和管理多个独立的知识库
 - **固定问答系统**: 基于RAG架构的高精度问答系统，支持预设问答对的精确匹配和文件批量导入（JSON/CSV/Excel）
 
@@ -150,8 +150,9 @@ OPENAI_EMBEDDING_API_KEY="your_api_key_here"
 OPENAI_EMBEDDING_MODEL="embedding_qwen"
 
 # 知识库配置
-WORKING_DIR="./knowledgeBase/default"
-QA_STORAGE_DIR="./Q_A_Base"
+DATA_DIR="./data"
+WORKING_DIR="./data/knowledgeBase/default"
+QA_STORAGE_DIR="./data/Q_A_Base"
 
 # 网关协同配置
 ENABLE_PROXY_HEADERS=true
@@ -311,6 +312,14 @@ question,answer,category,confidence,keywords,source
 | 文档 | `/api/v1/insert/file` | POST | 上传文件到知识库 |
 | 知识库 | `/api/v1/knowledge-bases` | GET/POST | 知识库管理 |
 | 图谱 | `/api/v1/knowledge-graph` | POST | 获取图谱数据 |
+| **意图识别** | `/api/v1/intent/health` | GET | 意图识别服务健康检查 |
+| **意图识别** | `/api/v1/intent/analyze` | POST | 分析查询意图和安全级别 |
+| **意图识别** | `/api/v1/intent/safety-check` | POST | 内容安全检查 |
+| **意图识别** | `/api/v1/intent/status` | GET | 获取处理器状态 |
+| **配置管理** | `/api/v1/intent-config/current` | GET | 获取当前配置 |
+| **配置管理** | `/api/v1/intent-config/intent-types` | GET/POST | 意图类型管理 |
+| **配置管理** | `/api/v1/intent-config/prompts` | GET/POST | 提示词管理 |
+| **配置管理** | `/api/v1/intent-config/safety` | GET/POST | 安全配置管理 |
 | **固定问答** | `/api/v1/qa/health` | GET | 问答系统健康检查 |
 | **固定问答** | `/api/v1/qa/pairs` | POST | 创建问答对 |
 | **固定问答** | `/api/v1/qa/pairs` | GET | 获取问答对列表 |
@@ -427,7 +436,11 @@ gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8002
 - 重构API架构，提供更清晰的模块化设计
 - 增强查询功能，支持多种查询模式（local/global/hybrid/naive/mix/bypass）
 - 完善知识库管理功能
-- 新增意图识别和安全检查
+- **🧠 意图识别系统优化**:
+  - 清理重复的API接口，优化代码结构
+  - 分离核心功能和配置管理，提供更清晰的接口边界
+  - 支持动态配置管理、热更新和配置验证
+  - 提供完整的意图类型、提示词和安全配置管理
 - **🎯 新增固定问答系统**:
   - 基于RAG架构的高精度问答匹配（支持0.98高阈值）
   - 支持JSON/CSV/Excel格式的批量导入

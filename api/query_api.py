@@ -298,7 +298,11 @@ class QueryAPI:
     def _get_working_dir(self, knowledge_base: Optional[str]) -> Optional[str]:
         """获取工作目录"""
         if knowledge_base:
-            return f"./knowledgeBase/{knowledge_base}"
+            from pathlib import Path
+            from common.config import settings
+            # 使用配置文件中的knowledgeBase目录
+            kb_base_dir = str(Path(settings.working_dir).parent)
+            return f"{kb_base_dir}/{knowledge_base}"
         return None
     
     def _get_llm_func(self):

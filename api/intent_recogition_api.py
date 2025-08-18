@@ -1,6 +1,14 @@
 """
-意图识别API - 分离的API逻辑
+意图识别API - 核心业务逻辑
 提供意图识别相关的业务逻辑处理
+
+功能包括：
+- 意图分析：分析查询的意图类型和安全级别
+- 安全检查：检查内容的安全性
+- 健康检查：检查服务状态
+- 状态获取：获取处理器状态信息
+
+注意：意图类型和安全级别的配置管理功能已移至 intent_config_api
 """
 import time
 import asyncio
@@ -164,34 +172,8 @@ async def get_status_api() -> Dict[str, Any]:
         raise Exception(f"状态获取失败: {str(e)}")
 
 
-async def get_intent_types_api() -> Dict[str, Any]:
-    """获取意图类型列表API逻辑"""
-    try:
-        processor = await get_query_processor()
-        return {
-            "success": True,
-            "data": processor.get_intent_types(),
-            "message": "意图类型获取成功"
-        }
-        
-    except Exception as e:
-        logger.error(f"意图类型获取失败: {e}")
-        raise Exception(f"意图类型获取失败: {str(e)}")
-
-
-async def get_safety_levels_api() -> Dict[str, Any]:
-    """获取安全级别列表API逻辑"""
-    try:
-        processor = await get_query_processor()
-        return {
-            "success": True,
-            "data": processor.get_safety_levels(),
-            "message": "安全级别获取成功"
-        }
-        
-    except Exception as e:
-        logger.error(f"安全级别获取失败: {e}")
-        raise Exception(f"安全级别获取失败: {str(e)}")
+# 注意：get_intent_types_api 和 get_safety_levels_api 已移至配置管理API
+# 这些功能现在通过 /api/v1/intent-config/intent-types 和相关接口提供
 
 
 # 导出所有API函数
@@ -202,7 +184,6 @@ __all__ = [
     "health_check_api",
     "analyze_intent_api",
     "safety_check_api",
-    "get_status_api",
-    "get_intent_types_api",
-    "get_safety_levels_api"
+    "get_status_api"
+    # 注意：get_intent_types_api 和 get_safety_levels_api 已移至配置管理API
 ]

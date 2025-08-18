@@ -14,19 +14,48 @@ from common.config import settings
 from common.logging_utils import logger_manager
 from common.utils import format_file_size, generate_unique_id
 from common.file_utils import ensure_directory
+from common.config import settings
 
 
 class KnowledgeBaseManager:
     """知识库管理器"""
-    
+
     def __init__(self, base_dir: str = None):
-        self.base_dir = base_dir or "./knowledgeBase"
+        # 使用配置文件中的路径，如果没有指定base_dir的话
+        if base_dir is None:
+            # 从working_dir中提取knowledgeBase目录
+            from pathlib import Path
+            self.base_dir = str(Path(settings.working_dir).parent)
+        else:
+            self.base_dir = base_dir
         self.logger = logger_manager.setup_knowledge_base_logger()
-        self.current_kb = "default"
+
+        # 根据配置文件中的working_dir自动推导当前知识库
+        self.current_kb = self._get_current_kb_from_config()
         self._ensure_base_dir()
         self._kb_cache = {}  # 缓存知识库信息
         self._cache_ttl = 300  # 缓存5分钟
-    
+
+    def _get_current_kb_from_config(self) -> str:
+        """从配置文件中推导当前知识库名称"""
+        try:
+            from pathlib import Path
+            # 从working_dir中提取知识库名称
+            # 例如: ./data/knowledgeBase/cs_college -> cs_college
+            working_dir = Path(settings.working_dir)
+            kb_name = working_dir.name
+
+            # 验证推导出的知识库名称是否合理
+            if kb_name and kb_name != "knowledgeBase":
+                self.logger.info(f"从配置推导出当前知识库: {kb_name}")
+                return kb_name
+            else:
+                self.logger.warning(f"无法从working_dir推导知识库名称: {settings.working_dir}，使用默认值")
+                return "default"
+        except Exception as e:
+            self.logger.error(f"推导当前知识库失败: {e}，使用默认值")
+            return "default"
+
     def _ensure_base_dir(self):
         """确保基础目录存在"""
         ensure_directory(self.base_dir)
@@ -335,6 +364,35 @@ class KnowledgeBaseManager:
         """清除缓存"""
         self._kb_cache.clear()
         self.logger.debug("知识库缓存已清除")
+
+    def reload_config(self):
+        """重新加载配置并更新当前知识库"""
+        try:
+            # 重新推导当前知识库
+            new_current_kb = self._get_current_kb_from_config()
+
+            # 检查新知识库是否存在
+            new_kb_path = os.path.join(self.base_dir, new_current_kb)
+            if os.path.exists(new_kb_path):
+                old_kb = self.current_kb
+                self.current_kb = new_current_kb
+                self._clear_cache()
+                self.logger.info(f"配置重新加载完成，知识库从 '{old_kb}' 切换到 '{new_current_kb}'")
+            else:
+                self.logger.warning(f"配置中的知识库 '{new_current_kb}' 不存在，保持当前知识库 '{self.current_kb}'")
+
+        except Exception as e:
+            self.logger.error(f"重新加载配置失败: {e}")
+
+    def get_config_info(self) -> Dict[str, Any]:
+        """获取配置信息"""
+        return {
+            "base_dir": self.base_dir,
+            "current_kb": self.current_kb,
+            "current_kb_path": self.get_current_kb_path(),
+            "working_dir_config": settings.working_dir,
+            "data_dir_config": settings.data_dir
+        }
 
 
 # 全局知识库管理器实例

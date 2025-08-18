@@ -3,7 +3,8 @@
 处理系统管理相关的业务逻辑
 """
 import time
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
+from fastapi.responses import Response
 
 from model import (
     BaseResponse, ConfigUpdateRequest, SystemResetRequest,
@@ -172,9 +173,12 @@ class SystemAPI:
             # 1. 备份数据（如果需要）
             if request.backup_data:
                 try:
+                    from pathlib import Path
+                    from common.config import settings
                     backup_dir = f"./backup_{int(time.time())}"
-                    if os.path.exists("./knowledgeBase"):
-                        shutil.copytree("./knowledgeBase", f"{backup_dir}/knowledgeBase")
+                    kb_base_dir = str(Path(settings.working_dir).parent)
+                    if os.path.exists(kb_base_dir):
+                        shutil.copytree(kb_base_dir, f"{backup_dir}/knowledgeBase")
                         reset_result["backup_created"] = True
                         reset_result["backup_path"] = backup_dir
                         self.logger.info(f"数据备份完成: {backup_dir}")
@@ -183,8 +187,11 @@ class SystemAPI:
 
             # 2. 清理知识库数据
             try:
-                if os.path.exists("./knowledgeBase"):
-                    shutil.rmtree("./knowledgeBase")
+                from pathlib import Path
+                from common.config import settings
+                kb_base_dir = str(Path(settings.working_dir).parent)
+                if os.path.exists(kb_base_dir):
+                    shutil.rmtree(kb_base_dir)
                     reset_result["cleared_data"].append("knowledgeBase")
                     self.logger.info("知识库数据已清理")
             except Exception as e:

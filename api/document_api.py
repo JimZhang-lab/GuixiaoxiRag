@@ -219,7 +219,11 @@ class DocumentAPI:
         if working_dir:
             return working_dir
         if knowledge_base:
-            return f"./knowledgeBase/{knowledge_base}"
+            from pathlib import Path
+            from common.config import settings
+            # 使用配置文件中的knowledgeBase目录
+            kb_base_dir = str(Path(settings.working_dir).parent)
+            return f"{kb_base_dir}/{knowledge_base}"
         return None
 
 

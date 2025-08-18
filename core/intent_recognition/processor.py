@@ -15,6 +15,7 @@ from .models import (
 )
 from .dfa_filter import SensitiveWordManager
 from .utils import QueryUtils, IntentPatterns, EnhancementTemplates
+from .config_manager import get_processor_config
 
 logger = logger_manager.get_logger("intent_processor")
 
@@ -34,81 +35,114 @@ class IntentRecognitionProcessor:
     """基于大模型的意图识别处理器"""
 
     def __init__(self, config: ProcessorConfig = None, llm_func: Optional[Callable] = None):
-        self.config = config or ProcessorConfig()
+        self.config = config or get_processor_config()
         self.llm_func = llm_func
-        
+
         # 初始化敏感词管理器
         self.sensitive_word_manager = None
         if self.config.enable_dfa_filter:
             self.sensitive_word_manager = SensitiveWordManager()
             self.sensitive_word_manager.initialize(self.config.sensitive_vocabulary_path)
-        
+
         # 加载模式和模板
         self.intent_patterns = IntentPatterns.get_default_patterns()
         self.educational_patterns = IntentPatterns.get_educational_patterns()
         self.instructive_patterns = IntentPatterns.get_instructive_patterns()
         self.enhancement_templates = EnhancementTemplates.get_default_templates()
-        
+
         # 大模型提示词模板
         self._init_prompts()
 
+        # 缓存配置信息
+        self._cache_config_info()
+
     def _init_prompts(self):
-        """初始化提示词模板"""
-        self.safety_check_prompt = """
+        """初始化提示词模板 - 支持配置文件自定义"""
+        # 使用配置文件中的提示词，如果没有则使用默认值
+        prompt_config = self.config.llm_prompt_config
+
+        self.safety_check_prompt = prompt_config.safety_check_prompt or self._get_default_safety_prompt()
+        self.intent_analysis_prompt = prompt_config.intent_analysis_prompt or self._get_default_intent_prompt()
+        self.query_enhancement_prompt = prompt_config.query_enhancement_prompt or self._get_default_enhancement_prompt()
+
+        # 加载自定义提示词
+        self.custom_prompts = prompt_config.custom_prompts or {}
+
+    def _get_default_safety_prompt(self) -> str:
+        """获取默认安全检查提示词"""
+        # 动态生成安全级别和风险关键词
+        safety_levels = list(self.config.safety_config.safety_levels.keys())
+        risk_keywords = self.config.safety_config.risk_keywords
+        educational_patterns = self.config.safety_config.educational_patterns
+        instructive_patterns = self.config.safety_config.instructive_patterns
+
+        return f"""
 你是一个内容安全审核专家。请分析以下查询是否涉及违法违规内容。
 
-查询内容："{query}"
+查询内容："{{query}}"
 
 请从以下维度进行分析：
-1. 是否涉及违法犯罪活动（如赌博、毒品、诈骗、暴力等）
+1. 是否涉及违法犯罪活动（如{', '.join(risk_keywords[:5])}等）
 2. 是否涉及不当内容（如色情、仇恨言论等）
 3. 查询意图是正向教育/防范，还是负面实施/教程
 
+正向教育模式示例：{', '.join(educational_patterns[:3])}
+负面指导模式示例：{', '.join(instructive_patterns[:3])}
+
 请以JSON格式返回分析结果：
-{{
+{{{{
     "is_safe": true/false,
-    "safety_level": "safe/suspicious/unsafe/illegal",
+    "safety_level": "{'/'.join(safety_levels)}",
     "risk_factors": ["风险因素1", "风险因素2"],
     "intent_direction": "educational/instructive/neutral",
     "confidence": 0.95,
     "reason": "详细分析原因"
-}}
+}}}}
 
 注意：
-- 对于"如何防范/识别/举报"等正向教育内容，应标记为安全
-- 对于"如何实施/制作/购买"等可能的违法指导，应标记为不安全
+- 对于正向教育内容，应标记为安全
+- 对于可能的违法指导，应标记为不安全
 - 严格按照JSON格式返回，不要包含其他内容
 """
 
-        self.intent_analysis_prompt = """
+    def _get_default_intent_prompt(self) -> str:
+        """获取默认意图分析提示词"""
+        # 动态生成意图类型列表
+        intent_types = self.config.intent_type_config.intent_types
+        custom_intents = self.config.intent_type_config.custom_intent_types
+
+        # 合并所有意图类型
+        all_intents = {**intent_types, **custom_intents}
+
+        intent_list = []
+        for i, (intent_type, display_name) in enumerate(all_intents.items(), 1):
+            intent_list.append(f"{i}. {intent_type}: {display_name}")
+
+        return f"""
 你是一个查询意图分析专家。请分析以下查询的具体意图类型。
 
-查询内容："{query}"
+查询内容："{{query}}"
 
 可选的意图类型：
-1. knowledge_query: 知识查询（如"什么是人工智能"）
-2. factual_question: 事实性问题（如"谁发明了电话"）
-3. analytical_question: 分析性问题（如"为什么会发生这种现象"）
-4. procedural_question: 程序性问题（如"如何操作某个软件"）
-5. creative_request: 创意请求（如"写一首诗"）
-6. greeting: 问候（如"你好"）
-7. unclear: 意图不明确
-8. illegal_content: 非法内容
+{chr(10).join(intent_list)}
 
 请以JSON格式返回分析结果：
-{{
+{{{{
     "intent_type": "knowledge_query",
     "confidence": 0.95,
     "reason": "用户询问某个概念的定义，属于知识查询",
     "keywords": ["关键词1", "关键词2"]
-}}
+}}}}
 
 注意：
 - 严格按照JSON格式返回，不要包含其他内容
 - confidence 应该是 0-1 之间的数值
+- intent_type 必须是上述列表中的一个
 """
 
-        self.query_enhancement_prompt = """
+    def _get_default_enhancement_prompt(self) -> str:
+        """获取默认查询增强提示词"""
+        return """
 你是一个查询优化专家。请分析以下查询是否需要增强，如果需要，请提供优化后的查询。
 
 原始查询："{query}"
@@ -133,6 +167,86 @@ class IntentRecognitionProcessor:
 - 只有在确实能改进查询质量时才建议增强
 - 严格按照JSON格式返回，不要包含其他内容
 """
+
+    def _cache_config_info(self):
+        """缓存配置信息以提高性能"""
+        self._cached_intent_types = {**self.config.intent_type_config.intent_types,
+                                   **self.config.intent_type_config.custom_intent_types}
+        self._cached_safety_levels = self.config.safety_config.safety_levels
+        self._cached_risk_keywords = set(self.config.safety_config.risk_keywords)
+        self._cached_educational_patterns = self.config.safety_config.educational_patterns
+        self._cached_instructive_patterns = self.config.safety_config.instructive_patterns
+
+    def reload_config(self, new_config: ProcessorConfig = None):
+        """重新加载配置"""
+        if new_config:
+            self.config = new_config
+        else:
+            from .config_manager import get_processor_config
+            self.config = get_processor_config()
+
+        # 重新初始化组件
+        self._init_prompts()
+        self._cache_config_info()
+
+        # 重新初始化敏感词管理器
+        if self.config.enable_dfa_filter and self.sensitive_word_manager:
+            self.sensitive_word_manager.initialize(self.config.sensitive_vocabulary_path)
+
+        logger.info("处理器配置已重新加载")
+
+    def get_available_intent_types(self) -> Dict[str, str]:
+        """获取可用的意图类型"""
+        return self._cached_intent_types.copy()
+
+    def get_available_safety_levels(self) -> Dict[str, str]:
+        """获取可用的安全级别"""
+        return self._cached_safety_levels.copy()
+
+    def add_custom_intent_type(self, intent_type: str, display_name: str, priority: int = 50):
+        """添加自定义意图类型"""
+        self.config.intent_type_config.custom_intent_types[intent_type] = display_name
+        self.config.intent_type_config.intent_priorities[intent_type] = priority
+        self._cache_config_info()
+        logger.info(f"添加自定义意图类型: {intent_type} -> {display_name}")
+
+    def remove_custom_intent_type(self, intent_type: str):
+        """移除自定义意图类型"""
+        if intent_type in self.config.intent_type_config.custom_intent_types:
+            del self.config.intent_type_config.custom_intent_types[intent_type]
+            if intent_type in self.config.intent_type_config.intent_priorities:
+                del self.config.intent_type_config.intent_priorities[intent_type]
+            self._cache_config_info()
+            logger.info(f"移除自定义意图类型: {intent_type}")
+
+    def update_prompt(self, prompt_type: str, prompt_content: str):
+        """更新提示词"""
+        if prompt_type == "safety_check":
+            self.config.llm_prompt_config.safety_check_prompt = prompt_content
+            self.safety_check_prompt = prompt_content
+        elif prompt_type == "intent_analysis":
+            self.config.llm_prompt_config.intent_analysis_prompt = prompt_content
+            self.intent_analysis_prompt = prompt_content
+        elif prompt_type == "query_enhancement":
+            self.config.llm_prompt_config.query_enhancement_prompt = prompt_content
+            self.query_enhancement_prompt = prompt_content
+        else:
+            # 自定义提示词
+            self.config.llm_prompt_config.custom_prompts[prompt_type] = prompt_content
+            self.custom_prompts[prompt_type] = prompt_content
+
+        logger.info(f"更新提示词: {prompt_type}")
+
+    def get_prompt(self, prompt_type: str) -> Optional[str]:
+        """获取提示词"""
+        if prompt_type == "safety_check":
+            return self.safety_check_prompt
+        elif prompt_type == "intent_analysis":
+            return self.intent_analysis_prompt
+        elif prompt_type == "query_enhancement":
+            return self.query_enhancement_prompt
+        else:
+            return self.custom_prompts.get(prompt_type)
 
     async def process_query(self, query: str, context: Optional[Dict] = None) -> QueryAnalysisResult:
         """基于大模型的查询处理"""

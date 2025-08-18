@@ -350,10 +350,31 @@ class CategoryQAStorage:
         categories_count = len(self.category_storages)
 
         category_breakdown = {}
+        total_confidence = 0
         for category, storage in self.category_storages.items():
             category_breakdown[category] = len(storage.qa_pairs)
+            # 计算该分类的总置信度
+            for qa_pair in storage.qa_pairs.values():
+                total_confidence += qa_pair.confidence
 
+        avg_confidence = total_confidence / total_pairs if total_pairs > 0 else 0
+
+        # 返回与 QAVectorStorage 兼容的数据结构
         return {
+            "storage_stats": {
+                "total_pairs": total_pairs,
+                "categories": category_breakdown,
+                "average_confidence": avg_confidence,
+                "similarity_threshold": self.similarity_threshold,
+                "vector_index_size": total_pairs,
+                "embedding_dim": getattr(self.embedding_func, 'embedding_dim', 0),
+                "query_stats": {
+                    "total_queries": 0,  # 可以添加查询统计
+                    "successful_queries": 0,
+                    "avg_response_time": 0.0
+                }
+            },
+            # 保留原有的字段以保持向后兼容
             "total_qa_pairs": total_pairs,
             "total_categories": categories_count,
             "category_breakdown": category_breakdown,

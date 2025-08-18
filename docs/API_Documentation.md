@@ -540,13 +540,20 @@ CURL_JSON="curl -sS -H 'Accept: application/json' -H 'Content-Type: application/
 
 ### 6. 意图识别 API
 
-#### 6.1 健康检查
+意图识别系统提供智能查询意图分析和内容安全检查功能。系统分为两个主要模块：
+
+- **核心功能** (`/api/v1/intent`): 提供意图分析、安全检查等核心功能
+- **配置管理** (`/api/v1/intent-config`): 提供配置管理、热更新等管理功能
+
+#### 6.1 核心功能 API
+
+##### 6.1.1 健康检查
 
 **端点**: `GET /api/v1/intent/health`
 
 **描述**: 检查意图识别服务的健康状态
 
-#### 6.2 意图分析
+##### 6.1.2 意图分析
 
 **端点**: `POST /api/v1/intent/analyze`
 
@@ -560,7 +567,25 @@ CURL_JSON="curl -sS -H 'Accept: application/json' -H 'Content-Type: application/
 }
 ```
 
-#### 6.3 安全检查
+**响应示例**:
+```json
+{
+    "success": true,
+    "data": {
+        "original_query": "如何学习Python编程？",
+        "processed_query": "如何学习Python编程？",
+        "intent_type": "procedural_question",
+        "safety_level": "safe",
+        "confidence": 0.95,
+        "suggestions": ["可以询问具体的编程语言特性"],
+        "enhanced_query": "请详细介绍Python编程的学习路径、基础知识和实践项目",
+        "should_reject": false,
+        "processing_time": 0.5
+    }
+}
+```
+
+##### 6.1.3 安全检查
 
 **端点**: `POST /api/v1/intent/safety-check`
 
@@ -574,17 +599,104 @@ CURL_JSON="curl -sS -H 'Accept: application/json' -H 'Content-Type: application/
 }
 ```
 
-#### 6.4 获取意图类型
+##### 6.1.4 处理器状态
 
-**端点**: `GET /api/v1/intent/intent-types`
+**端点**: `GET /api/v1/intent/status`
 
-**描述**: 获取支持的意图类型列表
+**描述**: 获取意图识别处理器的状态信息
 
-#### 6.5 获取安全级别
+**注意**: 意图类型和安全级别列表已移至配置管理API，请使用 `/api/v1/intent-config/intent-types` 获取。
 
-**端点**: `GET /api/v1/intent/safety-levels`
+#### 6.2 配置管理 API
 
-**描述**: 获取支持的安全级别列表
+##### 6.2.1 获取当前配置
+
+**端点**: `GET /api/v1/intent-config/current`
+
+**描述**: 获取当前意图识别配置
+
+##### 6.2.2 更新配置
+
+**端点**: `POST /api/v1/intent-config/update`
+
+**描述**: 更新意图识别配置
+
+**请求体**:
+```json
+{
+    "base": {
+        "confidence_threshold": 0.8,
+        "enable_llm": true
+    },
+    "intent_types": {
+        "custom_intent_types": {
+            "business_inquiry": "商业咨询"
+        }
+    }
+}
+```
+
+##### 6.2.3 意图类型管理
+
+**端点**: `GET /api/v1/intent-config/intent-types`
+
+**描述**: 获取所有意图类型配置
+
+**端点**: `POST /api/v1/intent-config/intent-types`
+
+**描述**: 添加新的意图类型
+
+**请求体**:
+```json
+{
+    "intent_type": "custom_intent",
+    "display_name": "自定义意图",
+    "priority": 50,
+    "category": "custom"
+}
+```
+
+##### 6.2.4 提示词管理
+
+**端点**: `GET /api/v1/intent-config/prompts`
+
+**描述**: 获取所有提示词配置
+
+**端点**: `POST /api/v1/intent-config/prompts`
+
+**描述**: 更新指定的提示词
+
+**请求体**:
+```json
+{
+    "prompt_type": "custom_prompt",
+    "prompt_content": "你是一个专业的助手，请分析以下查询：\n\n查询内容：\"{query}\"\n\n请提供详细的分析和建议。"
+}
+```
+
+##### 6.2.5 安全配置管理
+
+**端点**: `GET /api/v1/intent-config/safety`
+
+**描述**: 获取安全检查配置
+
+**端点**: `POST /api/v1/intent-config/safety`
+
+**描述**: 更新安全检查配置
+
+##### 6.2.6 配置验证和导入导出
+
+**端点**: `POST /api/v1/intent-config/validate`
+
+**描述**: 验证配置数据的有效性
+
+**端点**: `GET /api/v1/intent-config/export`
+
+**描述**: 导出当前配置为JSON格式
+
+**端点**: `POST /api/v1/intent-config/import`
+
+**描述**: 从JSON数据导入配置
 
 ### 7. 缓存管理 API
 

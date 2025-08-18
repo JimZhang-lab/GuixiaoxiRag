@@ -35,7 +35,7 @@ class OptimizedQAManager:
                  namespace: str = "default",
                  similarity_threshold: float = 0.98,
                  max_results: int = 10,
-                 working_dir: str = "./Q_A_Base",
+                 working_dir: str = None,
                  qa_storage_dir: str = None):
         """
         初始化Q&A管理器
@@ -53,8 +53,15 @@ class OptimizedQAManager:
         self.similarity_threshold = similarity_threshold
         self.max_results = max_results
 
-        # 使用 qa_storage_dir 如果提供，否则使用 working_dir
-        self.working_dir = qa_storage_dir or working_dir
+        # 使用 qa_storage_dir 如果提供，否则使用 working_dir，如果都没有则使用配置文件中的默认值
+        if qa_storage_dir:
+            self.working_dir = qa_storage_dir
+        elif working_dir:
+            self.working_dir = working_dir
+        else:
+            # 使用配置文件中的默认QA存储目录
+            from common.config import settings
+            self.working_dir = settings.qa_storage_dir or "./data/Q_A_Base"
 
         # 创建存储目录
         os.makedirs(self.working_dir, exist_ok=True)
@@ -339,13 +346,17 @@ class OptimizedQAManager:
             
             # 获取统计信息
             stats = self.storage.get_statistics()
-            
+
+            # 安全地获取统计信息
+            storage_stats = stats.get("storage_stats", {})
+            total_pairs = storage_stats.get("total_pairs", 0)
+
             return {
                 "success": True,
                 "status": "healthy",
                 "qa_storage_status": "ready",
                 "embedding_status": embedding_status,
-                "total_qa_pairs": stats["storage_stats"]["total_pairs"],
+                "total_qa_pairs": total_pairs,
                 "avg_response_time": 0.0,  # 可以添加实际统计
                 "error_rate": 0.0
             }

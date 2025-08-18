@@ -8,8 +8,15 @@ from typing import Optional, List, Dict
 try:
     from pydantic_settings import BaseSettings
     from pydantic import Field
+    PYDANTIC_V2 = True
 except ImportError:
-    from pydantic import BaseSettings, Field
+    try:
+        from pydantic import BaseSettings, Field
+        PYDANTIC_V2 = False
+    except ImportError:
+        # 如果都失败了，尝试最基本的导入
+        from pydantic import BaseModel as BaseSettings, Field
+        PYDANTIC_V2 = False
 
 
 def get_project_root() -> Path:
@@ -50,8 +57,10 @@ class Settings(BaseSettings):
     workers: int = Field(default=1, description="工作进程数")
 
     # GuiXiaoXiRag配置
-    working_dir: str = Field(default="./knowledgeBase/default", description="知识库工作目录")
-    qa_storage_dir: Optional[str] = Field(default=None, description="QA存储目录（默认使用 working_dir/Q_A_Base）")
+    data_dir: str = Field(default="./data", description="数据目录")
+    working_dir: str = Field(default="./data/knowledgeBase/default", description="知识库工作目录")
+    qa_storage_dir: Optional[str] = Field(default="./data/Q_A_Base", description="QA存储目录")
+    intent_config_path: str = Field(default="./data/custom_intents", description="意图识别配置路径")
 
     # 大模型配置 - 支持用户自定义，未配置时使用默认值
     openai_api_base: str = Field(default="http://localhost:8100/v1", description="OpenAI API 基础URL")
@@ -147,20 +156,19 @@ class Settings(BaseSettings):
     rate_limit_default_tier: str = Field(default="default", description="默认用户等级")
     min_interval_per_user: float = Field(default=0.0, description="同一用户两次请求的最小间隔（秒），0表示不限制")
 
-    class Config:
-        # 动态查找 .env 文件
-        env_file = find_env_file()
-        env_file_encoding = "utf-8"
-        case_sensitive = False
-        # 忽略额外的字段，避免验证错误
-        extra = "ignore"
-        # 支持从多个位置读取环境文件
-        env_files = [
-            get_project_root() / ".env",
-            get_project_root() / ".env.local",
-            # get_project_root() / "server_new" / ".env",
-            Path.cwd() / ".env"
-        ]
+    if PYDANTIC_V2:
+        model_config = {
+            "env_file": find_env_file(),
+            "env_file_encoding": "utf-8",
+            "case_sensitive": False,
+            "extra": "ignore"
+        }
+    else:
+        class Config:
+            env_file = find_env_file()
+            env_file_encoding = "utf-8"
+            case_sensitive = False
+            extra = "ignore"
 
 
 # 全局配置实例
@@ -181,14 +189,17 @@ settings = create_settings()
 def ensure_directories():
     """确保必要的目录存在"""
     directories = [
-        settings.working_dir,
+        settings.data_dir,  # 数据目录
+        settings.working_dir,  # 知识库工作目录
+        settings.qa_storage_dir,  # QA存储目录
         settings.log_dir,
         settings.upload_dir,
         Path(settings.working_dir).parent,  # knowledgeBase目录
     ]
 
     for directory in directories:
-        os.makedirs(directory, exist_ok=True)
+        if directory:  # 确保目录不为None
+            os.makedirs(directory, exist_ok=True)
 
 
 def validate_config():

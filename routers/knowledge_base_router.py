@@ -370,5 +370,57 @@ async def restore_knowledge_base(name: str, backup_file: str, restore_mode: str 
     return await kb_api.restore_knowledge_base(name, backup_file, restore_mode, overwrite)
 
 
+@router.post(
+    "/reload-config",
+    response_model=BaseResponse,
+    summary="重新加载配置",
+    description="""
+    重新加载知识库配置，包括：
+
+    **重新加载内容：**
+    - 从环境变量重新读取配置
+    - 根据WORKING_DIR自动切换当前知识库
+    - 更新知识库管理器状态
+
+    **返回信息：**
+    - 更新后的配置信息
+    - 当前知识库信息
+    - 路径配置详情
+
+    **使用场景：**
+    - 修改.env文件后需要重新加载配置
+    - 切换知识库后需要更新状态
+    - 配置调试和验证
+    """
+)
+async def reload_config():
+    """重新加载配置"""
+    return await kb_api.reload_config()
+
+
+@router.get(
+    "/config-info",
+    response_model=BaseResponse,
+    summary="获取配置信息",
+    description="""
+    获取当前知识库管理器的配置信息。
+
+    **返回信息：**
+    - 知识库基础目录
+    - 当前知识库名称
+    - 当前知识库路径
+    - 配置文件中的路径设置
+
+    **用途：**
+    - 调试配置问题
+    - 验证路径设置
+    - 检查当前状态
+    """
+)
+async def get_config_info():
+    """获取配置信息"""
+    return await kb_api.get_config_info()
+
+
 # 导出路由器
 __all__ = ["router"]

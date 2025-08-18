@@ -13,9 +13,7 @@ from .intent_recogition_api import (
     health_check_api,
     analyze_intent_api,
     safety_check_api,
-    get_status_api,
-    get_intent_types_api,
-    get_safety_levels_api
+    get_status_api
 )
 from .system_api import SystemAPI
 from .knowledge_base_api import KnowledgeBaseAPI
@@ -35,7 +33,5 @@ __all__ = [
     "health_check_api",
     "analyze_intent_api",
     "safety_check_api",
-    "get_status_api",
-    "get_intent_types_api",
-    "get_safety_levels_api"
+    "get_status_api"
 ]

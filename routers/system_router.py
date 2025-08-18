@@ -2,7 +2,7 @@
 系统管理路由
 处理系统状态、配置管理、性能监控等功能
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from model import (
     BaseResponse, ConfigUpdateRequest, PerformanceConfigRequest,

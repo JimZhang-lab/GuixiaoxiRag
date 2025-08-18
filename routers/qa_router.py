@@ -36,7 +36,10 @@ async def get_qa_api_handler():
     if qa_api_handler is None:
         from api.qa_api import QAAPIHandler
         qa_api_handler = QAAPIHandler()
-        await qa_api_handler.initialize()
+        success = await qa_api_handler.initialize()
+        if not success:
+            logger.error("Failed to initialize QA API Handler")
+            # 即使初始化失败，也返回处理器实例，让各个方法自己处理错误
     return qa_api_handler
 
 
@@ -271,6 +274,12 @@ async def get_qa_categories():
     """
     try:
         handler = await get_qa_api_handler()
+
+        # 检查 QA 管理器是否已初始化
+        if not handler.qa_manager:
+            logger.error("QA manager is not initialized")
+            raise HTTPException(status_code=500, detail="问答系统未初始化")
+
         categories = handler.qa_manager.get_categories()
         category_stats = handler.qa_manager.get_category_stats()
 
@@ -444,11 +453,15 @@ async def backup_qa_data(request: QABackupRequest):
             backup_size = os.path.getsize(backup_file) if os.path.exists(backup_file) else 0
             stats = handler.qa_handler.get_statistics()
             
+            # 安全地获取统计信息
+            storage_stats = stats.get("data", {}).get("storage_stats", {})
+            qa_pairs_count = storage_stats.get("total_pairs", 0)
+
             backup_response = QABackupResponse(
                 success=True,
                 backup_file=backup_file,
                 backup_size=backup_size,
-                qa_pairs_count=stats.get("storage_stats", {}).get("total_pairs", 0),
+                qa_pairs_count=qa_pairs_count,
                 created_at=time.time(),
                 message="备份创建成功"
             )

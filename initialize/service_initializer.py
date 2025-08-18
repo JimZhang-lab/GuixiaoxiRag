@@ -17,7 +17,8 @@ async def initialize_services():
         # 1. 确保必要的目录存在
         ensure_directory(settings.log_dir)
         ensure_directory(settings.upload_dir)
-        ensure_directory("./knowledgeBase")
+        from pathlib import Path
+        ensure_directory(str(Path(settings.working_dir).parent))  # knowledgeBase目录
         
         # 2. 初始化知识库管理器
         await initialize_knowledge_base_manager()

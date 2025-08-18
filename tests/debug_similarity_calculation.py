@@ -262,7 +262,7 @@ async def test_current_system_similarity():
             workspace="qa_base",
             namespace="default",
             similarity_threshold=0.1,
-            working_dir="./Q_A_Base"
+            working_dir="./data/Q_A_Base"
         )
         
         success = await qa_manager.initialize()

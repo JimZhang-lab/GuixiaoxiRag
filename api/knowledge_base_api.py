@@ -260,6 +260,40 @@ class KnowledgeBaseAPI:
             self.logger.error(f"恢复知识库失败: {str(e)}")
             raise HTTPException(status_code=500, detail=f"恢复知识库失败: {str(e)}")
 
+    async def reload_config(self) -> BaseResponse:
+        """重新加载配置"""
+        try:
+            # 重新加载知识库管理器配置
+            kb_manager.reload_config()
+
+            # 获取更新后的配置信息
+            config_info = kb_manager.get_config_info()
+
+            return BaseResponse(
+                success=True,
+                message="配置重新加载成功",
+                data=config_info
+            )
+
+        except Exception as e:
+            self.logger.error(f"重新加载配置失败: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"重新加载配置失败: {str(e)}")
+
+    async def get_config_info(self) -> BaseResponse:
+        """获取配置信息"""
+        try:
+            config_info = kb_manager.get_config_info()
+
+            return BaseResponse(
+                success=True,
+                message="获取配置信息成功",
+                data=config_info
+            )
+
+        except Exception as e:
+            self.logger.error(f"获取配置信息失败: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"获取配置信息失败: {str(e)}")
+
 
 # 导出API处理器
 __all__ = ["KnowledgeBaseAPI"]

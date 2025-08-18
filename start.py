@@ -296,7 +296,7 @@ def get_server_config(args: argparse.Namespace) -> Dict[str, Any]:
             'workers': args.workers or 1,
             'debug': args.debug or False,
             'reload': args.reload or args.debug,
-            'working_dir': args.working_dir or './knowledgeBase/default',
+            'working_dir': args.working_dir or './data/knowledgeBase/default',
             'log_level': args.log_level or 'INFO'
         }
 

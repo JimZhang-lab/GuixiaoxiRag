@@ -54,7 +54,7 @@ DEFAULT_TIMEOUT = 150
 # Logging configuration defaults
 DEFAULT_LOG_MAX_BYTES = 10485760  # Default 10MB
 DEFAULT_LOG_BACKUP_COUNT = 5  # Default 5 backups
-DEFAULT_LOG_FILENAME = "logs/guixiaoxiRag.log"  # Default log filename
+DEFAULT_LOG_FILENAME = "guixiaoxiRag.log"  # Default log filename
 
 # Ollama server configuration defaults
 DEFAULT_OLLAMA_MODEL_NAME = "guixiaoxiRag"
