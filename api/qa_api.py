@@ -31,8 +31,8 @@ class QAAPIHandler:
         self.qa_manager = None
         self.initialized = False
         
-        # 配置参数
-        self.qa_storage_dir = os.path.join(settings.working_dir, "qa_storage")
+        # 配置参数（使用统一的 QA 存储目录）
+        self.qa_storage_dir = settings.qa_storage_dir or os.path.join(settings.working_dir, "Q_A_Base")
         self.qa_storage_file = os.path.join(self.qa_storage_dir, "qa_pairs.json")
         self.backup_dir = os.path.join(self.qa_storage_dir, "backups")
         

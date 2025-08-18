@@ -30,34 +30,39 @@ class OptimizedQAManager:
     - 批量操作支持
     """
     
-    def __init__(self, 
+    def __init__(self,
                  workspace: str = "qa_base",
                  namespace: str = "default",
                  similarity_threshold: float = 0.98,
                  max_results: int = 10,
-                 working_dir: str = "./Q_A_Base"):
+                 working_dir: str = "./Q_A_Base",
+                 qa_storage_dir: str = None):
         """
         初始化Q&A管理器
-        
+
         Args:
             workspace: 工作空间名称
             namespace: 命名空间
             similarity_threshold: 相似度阈值（默认0.98）
             max_results: 最大返回结果数
             working_dir: 工作目录
+            qa_storage_dir: QA存储目录（如果提供，将覆盖working_dir）
         """
         self.workspace = workspace
         self.namespace = namespace
         self.similarity_threshold = similarity_threshold
         self.max_results = max_results
-        self.working_dir = working_dir
-        
+
+        # 使用 qa_storage_dir 如果提供，否则使用 working_dir
+        self.working_dir = qa_storage_dir or working_dir
+
         # 创建存储目录
-        os.makedirs(working_dir, exist_ok=True)
-        
+        os.makedirs(self.working_dir, exist_ok=True)
+
         # 全局配置
         self.global_config = {
-            "working_dir": working_dir,
+            "working_dir": self.working_dir,
+            "qa_storage_dir": qa_storage_dir,  # 传递 qa_storage_dir 配置
             "embedding_batch_num": 10,
             "vector_db_storage_cls_kwargs": {
                 "cosine_better_than_threshold": 1.0 - similarity_threshold

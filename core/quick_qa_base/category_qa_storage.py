@@ -31,12 +31,17 @@ class CategoryQAStorage:
         self.similarity_threshold = similarity_threshold
         
         # 设置基础存储路径
-        working_dir = global_config["working_dir"]
-        # 如果working_dir已经以Q_A_Base结尾，直接使用，否则添加Q_A_Base
-        if working_dir.endswith("Q_A_Base"):
-            self.base_storage_path = working_dir
+        # 优先使用 qa_storage_dir 配置，如果没有则使用 working_dir/Q_A_Base
+        qa_storage_dir = global_config.get("qa_storage_dir")
+        if qa_storage_dir:
+            self.base_storage_path = qa_storage_dir
         else:
-            self.base_storage_path = os.path.join(working_dir, "Q_A_Base")
+            working_dir = global_config["working_dir"]
+            # 如果working_dir已经以Q_A_Base结尾，直接使用，否则添加Q_A_Base
+            if working_dir.endswith("Q_A_Base"):
+                self.base_storage_path = working_dir
+            else:
+                self.base_storage_path = os.path.join(working_dir, "Q_A_Base")
         os.makedirs(self.base_storage_path, exist_ok=True)
         
         # 分类存储管理

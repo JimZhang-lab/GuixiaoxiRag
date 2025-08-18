@@ -46,7 +46,8 @@ class QAHandler:
                 namespace="default",
                 similarity_threshold=self.similarity_threshold,
                 max_results=self.max_results,
-                working_dir=self.qa_storage_dir
+                working_dir=self.qa_storage_dir,
+                qa_storage_dir=self.qa_storage_dir  # 明确传递 QA 存储目录
             )
             
             # 初始化QAManager
