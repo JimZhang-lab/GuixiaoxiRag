@@ -18,12 +18,19 @@ class TransmitOpenAIPortAPI:
         self.logger = logger_manager.setup_api_logger()
         self.start_time = time.time()
         
-    async def forward_to_llm_service(self, path: str, request: Request):
+    async def forward_to_llm_service(self, path: str, request: Request, model_type: str = "chat"):
         """转发所有v1路径请求到LLM服务"""
         try:
             import httpx
             # 构建目标URL
-            target_url = f"{settings.openai_api_base}/{path}"
+            if model_type == "chat":
+                target_url = f"{settings.openai_api_base}/{path}"
+            elif model_type == "embedding":
+                target_url = f"{settings.openai_embedding_api_base}/{path}"
+            else:
+                # Rank model
+                target_url = f"{settings.openai_api_base}/{path}"
+            # raise HTTPException(status_code=400, detail=f"不支持的模型类型: {model_type}")
             
             # 获取查询参数
             query_params = dict(request.query_params)

@@ -122,7 +122,8 @@ async def health():
 )
 async def forward_to_llm_service(path: str, request: Request):
     """转发所有v1路径请求到LLM服务"""
-    return await transmit_openai_port_api.forward_to_llm_service(path, request)
+    return await transmit_openai_port_api.forward_to_llm_service(path, request, "chat")
+
 
 @app.api_route(
     "/v1/embedding/{path:path}",
@@ -146,7 +147,7 @@ async def forward_to_llm_service(path: str, request: Request):
 )
 async def forward_to_llm_service(path: str, request: Request):
     """转发所有v1路径请求到LLM服务"""
-    return await transmit_openai_port_api.forward_to_llm_service(path, request)
+    return await transmit_openai_port_api.forward_to_llm_service(path, request, "embedding")
 
 
 if __name__ == "__main__":

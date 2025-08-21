@@ -335,6 +335,108 @@ class CategoryQAStorage:
             }
         return stats
 
+    async def delete_category(self, category: str) -> Dict[str, Any]:
+        """删除特定分类的所有问答数据"""
+        try:
+            if category not in self.category_storages:
+                return {
+                    "success": False,
+                    "message": f"分类 '{category}' 不存在",
+                    "deleted_count": 0
+                }
+
+            storage = self.category_storages[category]
+            deleted_count = len(storage.qa_pairs)
+
+            # 从全局索引中删除该分类的所有问答对
+            qa_ids_to_remove = list(storage.qa_pairs.keys())
+            for qa_id in qa_ids_to_remove:
+                if qa_id in self.qa_pairs:
+                    del self.qa_pairs[qa_id]
+
+            # 清空该分类的存储
+            await storage.drop()
+
+            # 从分类存储中移除
+            del self.category_storages[category]
+
+            logger.info(f"Deleted category '{category}' with {deleted_count} QA pairs")
+
+            return {
+                "success": True,
+                "message": f"成功删除分类 '{category}' 及其 {deleted_count} 个问答对",
+                "deleted_count": deleted_count
+            }
+
+        except Exception as e:
+            logger.error(f"Error deleting category '{category}': {e}")
+            return {
+                "success": False,
+                "message": f"删除分类失败: {str(e)}",
+                "deleted_count": 0
+            }
+
+    async def delete_qa_pairs_by_ids(self, qa_ids: List[str]) -> Dict[str, Any]:
+        """根据ID列表删除问答对"""
+        try:
+            deleted_count = 0
+            not_found_ids = []
+
+            for qa_id in qa_ids:
+                # 从全局索引中查找
+                if qa_id in self.qa_pairs:
+                    qa_pair = self.qa_pairs[qa_id]
+                    category = qa_pair.category
+
+                    # 从对应分类存储中删除
+                    if category in self.category_storages:
+                        storage = self.category_storages[category]
+                        if qa_id in storage.qa_pairs:
+                            # 从向量数据库中删除
+                            await storage.delete([qa_id])
+                            deleted_count += 1
+
+                    # 从全局索引中删除
+                    del self.qa_pairs[qa_id]
+                else:
+                    not_found_ids.append(qa_id)
+
+            # 保存所有受影响的分类存储
+            affected_categories = set()
+            for qa_id in qa_ids:
+                if qa_id not in not_found_ids:
+                    # 通过遍历找到受影响的分类
+                    for category, storage in self.category_storages.items():
+                        if any(qa_id in storage.qa_pairs for qa_id in qa_ids):
+                            affected_categories.add(category)
+
+            for category in affected_categories:
+                await self.category_storages[category].index_done_callback()
+
+            result_message = f"成功删除 {deleted_count} 个问答对"
+            if not_found_ids:
+                result_message += f"，{len(not_found_ids)} 个ID未找到"
+
+            logger.info(f"Deleted {deleted_count} QA pairs, {len(not_found_ids)} not found")
+
+            return {
+                "success": True,
+                "message": result_message,
+                "deleted_count": deleted_count,
+                "not_found_count": len(not_found_ids),
+                "not_found_ids": not_found_ids
+            }
+
+        except Exception as e:
+            logger.error(f"Error deleting QA pairs by IDs: {e}")
+            return {
+                "success": False,
+                "message": f"删除问答对失败: {str(e)}",
+                "deleted_count": 0,
+                "not_found_count": 0,
+                "not_found_ids": []
+            }
+
     async def index_done_callback(self):
         """索引完成回调，保存所有分类的数据"""
         try:

@@ -1,0 +1,59 @@
+# 测试依赖包
+# GuixiaoxiRag 系统测试所需的Python包
+
+# 核心测试框架
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+pytest-xdist>=3.0.0  # 并行测试支持
+pytest-cov>=4.0.0    # 代码覆盖率
+pytest-html>=3.1.0   # HTML报告
+pytest-json-report>=1.5.0  # JSON报告
+
+# HTTP客户端
+httpx>=0.24.0
+requests>=2.28.0
+
+# 异步支持
+asyncio-mqtt>=0.11.0
+aiofiles>=23.0.0
+
+# 数据处理
+pandas>=1.5.0
+numpy>=1.24.0
+
+# 文件处理
+openpyxl>=3.1.0  # Excel文件支持
+python-docx>=0.8.11  # Word文档支持
+PyPDF2>=3.0.0    # PDF文件支持
+
+# 性能测试
+locust>=2.15.0   # 负载测试
+memory-profiler>=0.60.0  # 内存分析
+
+# 测试工具
+faker>=18.0.0    # 测试数据生成
+factory-boy>=3.2.0  # 对象工厂
+freezegun>=1.2.0  # 时间模拟
+
+# 断言增强
+assertpy>=1.1
+
+# 测试报告美化
+rich>=13.0.0     # 终端输出美化
+colorama>=0.4.6  # 跨平台颜色支持
+
+# 配置管理
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+
+# 日志处理
+loguru>=0.7.0
+
+# 开发工具
+black>=23.0.0    # 代码格式化
+flake8>=6.0.0    # 代码检查
+mypy>=1.0.0      # 类型检查
+
+# 文档生成
+mkdocs>=1.4.0
+mkdocs-material>=9.0.0

@@ -382,7 +382,7 @@ class QAAPIHandler:
             return BaseResponse(
                 success=True,
                 message=f"获取问答对列表成功，共 {total} 条记录",
-                data=list_response.dict()
+                data=list_response.model_dump()
             )
             
         except Exception as e:
@@ -429,7 +429,7 @@ class QAAPIHandler:
             return BaseResponse(
                 success=True,
                 message="获取统计信息成功",
-                data=qa_statistics.dict()
+                data=qa_statistics.model_dump()
             )
             
         except Exception as e:
@@ -485,7 +485,7 @@ class QAAPIHandler:
             return BaseResponse(
                 success=True,
                 message="健康检查完成",
-                data=health_check.dict()
+                data=health_check.model_dump()
             )
             
         except Exception as e:
@@ -499,6 +499,96 @@ class QAAPIHandler:
                 error_code="QA_HEALTH_CHECK_ERROR"
             )
     
+    async def delete_category(self, category: str) -> BaseResponse:
+        """删除特定分类的所有问答数据"""
+        start_time = time.time()
+
+        if not self.initialized:
+            return BaseResponse(
+                success=False,
+                message="问答系统未初始化",
+                error_code="QA_NOT_INITIALIZED"
+            )
+
+        try:
+            result = await self.qa_manager.delete_category(category)
+            response_time = time.time() - start_time
+
+            if result.get("success"):
+                self._update_stats(True, response_time)
+                return BaseResponse(
+                    success=True,
+                    message=result.get("message", f"分类 '{category}' 删除成功"),
+                    data={
+                        "deleted_count": result.get("deleted_count", 0),
+                        "category": category
+                    }
+                )
+            else:
+                self._update_stats(False, response_time)
+                return BaseResponse(
+                    success=False,
+                    message=result.get("message", f"删除分类 '{category}' 失败"),
+                    error_code="QA_DELETE_CATEGORY_FAILED"
+                )
+
+        except Exception as e:
+            response_time = time.time() - start_time
+            self._update_stats(False, response_time)
+            logger.error(f"Error deleting category: {e}")
+
+            return BaseResponse(
+                success=False,
+                message=f"删除分类时发生错误: {str(e)}",
+                error_code="QA_DELETE_CATEGORY_ERROR"
+            )
+
+    async def delete_qa_pairs_by_ids(self, qa_ids: List[str]) -> BaseResponse:
+        """根据ID列表删除问答对"""
+        start_time = time.time()
+
+        if not self.initialized:
+            return BaseResponse(
+                success=False,
+                message="问答系统未初始化",
+                error_code="QA_NOT_INITIALIZED"
+            )
+
+        try:
+            result = await self.qa_manager.delete_qa_pairs_by_ids(qa_ids)
+            response_time = time.time() - start_time
+
+            if result.get("success"):
+                self._update_stats(True, response_time)
+                return BaseResponse(
+                    success=True,
+                    message=result.get("message", "问答对删除成功"),
+                    data={
+                        "deleted_count": result.get("deleted_count", 0),
+                        "not_found_count": result.get("not_found_count", 0),
+                        "not_found_ids": result.get("not_found_ids", []),
+                        "requested_ids": qa_ids
+                    }
+                )
+            else:
+                self._update_stats(False, response_time)
+                return BaseResponse(
+                    success=False,
+                    message=result.get("message", "删除问答对失败"),
+                    error_code="QA_DELETE_PAIRS_FAILED"
+                )
+
+        except Exception as e:
+            response_time = time.time() - start_time
+            self._update_stats(False, response_time)
+            logger.error(f"Error deleting QA pairs: {e}")
+
+            return BaseResponse(
+                success=False,
+                message=f"删除问答对时发生错误: {str(e)}",
+                error_code="QA_DELETE_PAIRS_ERROR"
+            )
+
     async def cleanup(self):
         """清理资源"""
         if self.initialized and self.qa_manager:

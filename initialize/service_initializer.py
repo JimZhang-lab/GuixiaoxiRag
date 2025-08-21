@@ -19,15 +19,18 @@ async def initialize_services():
         ensure_directory(settings.upload_dir)
         from pathlib import Path
         ensure_directory(str(Path(settings.working_dir).parent))  # knowledgeBase目录
-        
+
         # 2. 初始化知识库管理器
         await initialize_knowledge_base_manager()
-        
+
         # 3. 初始化GuiXiaoXiRag服务
         await initialize_guixiaoxirag_service()
-        
+
+        # 4. 初始化QA系统
+        await initialize_qa_system()
+
         logger.info("所有核心服务初始化完成")
-        
+
     except Exception as e:
         logger.error(f"服务初始化失败: {str(e)}", exc_info=True)
         raise
@@ -59,19 +62,60 @@ async def initialize_guixiaoxirag_service():
         raise
 
 
+# 全局QA API处理器实例
+_qa_api_handler = None
+
+
+async def initialize_qa_system():
+    """初始化QA系统"""
+    global _qa_api_handler
+    try:
+        from api.qa_api import QAAPIHandler
+        _qa_api_handler = QAAPIHandler()
+        success = await _qa_api_handler.initialize()
+        if success:
+            logger.info("QA系统初始化完成")
+        else:
+            logger.error("QA系统初始化失败")
+            raise Exception("QA系统初始化失败")
+    except Exception as e:
+        logger.error(f"QA系统初始化失败: {str(e)}")
+        raise
+
+
+def get_qa_api_handler():
+    """获取QA API处理器实例"""
+    return _qa_api_handler
+
+
 async def cleanup_services():
     """清理所有服务"""
     try:
+        # 清理QA系统
+        await cleanup_qa_system()
+
         # 清理GuiXiaoXiRag服务
         await cleanup_guixiaoxirag_service()
-        
+
         # 清理知识库管理器
         await cleanup_knowledge_base_manager()
-        
+
         logger.info("所有服务清理完成")
-        
+
     except Exception as e:
         logger.error(f"服务清理失败: {str(e)}", exc_info=True)
+
+
+async def cleanup_qa_system():
+    """清理QA系统"""
+    global _qa_api_handler
+    try:
+        if _qa_api_handler:
+            await _qa_api_handler.cleanup()
+            _qa_api_handler = None
+        logger.info("QA系统清理完成")
+    except Exception as e:
+        logger.error(f"QA系统清理失败: {str(e)}")
 
 
 async def cleanup_guixiaoxirag_service():

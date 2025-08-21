@@ -24,31 +24,86 @@ document_api = DocumentAPI()
     response_model=BaseResponse,
     summary="插入单个文本文档",
     description="""
-    插入单个文本文档到指定知识库。
-    
+    插入单个文本文档到指定知识库，支持自动分块和向量化。
+
+    **功能特性：**
+    - 自动文本分块处理
+    - 向量化存储
+    - 支持多种语言
+    - 自动生成文档ID和跟踪ID
+
     **参数说明：**
-    - text: 要插入的文本内容（必填）
-    - doc_id: 文档ID（可选，系统会自动生成）
-    - file_path: 文件路径（可选）
-    - track_id: 跟踪ID（可选，系统会自动生成）
+    - text: 要插入的文本内容（必填，1-100000字符）
+    - doc_id: 文档ID（可选，系统自动生成UUID）
+    - file_path: 文件路径（可选，用于标识文档来源）
+    - track_id: 跟踪ID（可选，用于批量操作跟踪）
     - working_dir: 自定义知识库路径（可选）
     - knowledge_base: 知识库名称（可选，默认使用当前知识库）
-    - language: 处理语言（可选，默认使用系统设置）
-    
-    **返回结果：**
-    - success: 操作是否成功
-    - message: 操作结果消息
-    - data: 包含track_id等信息的数据对象
-    
-    **使用示例：**
-    ```json
-    {
-        "text": "这是一段要插入的文本内容",
-        "knowledge_base": "my_kb",
-        "language": "中文"
+    - language: 处理语言（可选，支持"中文"、"English"等）
+
+    **处理流程：**
+    1. 文本内容验证
+    2. 自动分块处理
+    3. 向量化计算
+    4. 存储到知识库
+    5. 返回处理结果
+
+    **文本分块：**
+    - 智能分块算法
+    - 保持语义完整性
+    - 支持重叠分块
+    - 可配置分块大小
+    """,
+    responses={
+        200: {
+            "description": "插入成功",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "success": {
+                            "summary": "插入成功",
+                            "value": {
+                                "success": True,
+                                "message": "文本文档插入成功",
+                                "data": {
+                                    "track_id": "track_12345678",
+                                    "doc_id": "doc_87654321",
+                                    "chunks_count": 3,
+                                    "total_tokens": 256
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        422: {
+            "description": "参数验证失败",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": [
+                            {
+                                "loc": ["body", "text"],
+                                "msg": "文本内容不能为空",
+                                "type": "value_error"
+                            }
+                        ]
+                    }
+                }
+            }
+        },
+        500: {
+            "description": "服务器内部错误",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "文档插入失败: 知识库未初始化"
+                    }
+                }
+            }
+        }
     }
-    ```
-    """
 )
 async def insert_text(request: InsertTextRequest):
     """插入单个文本文档"""
@@ -99,29 +154,114 @@ async def insert_texts(request: InsertTextsRequest):
     response_model=BaseResponse,
     summary="上传并插入单个文件",
     description="""
-    上传单个文件并将其内容插入到指定知识库。
-    
+    上传单个文件并将其内容解析后插入到指定知识库。
+
     **支持的文件格式：**
-    - 文本文件：.txt, .md
-    - 文档文件：.pdf, .docx, .doc
-    - 数据文件：.json, .xml, .csv
-    - 代码文件：.py, .js, .java, .cpp, .c, .h
-    
+    - 📄 文本文件：.txt, .md, .markdown
+    - 📋 文档文件：.pdf, .docx, .doc, .rtf
+    - 📊 数据文件：.json, .xml, .csv, .xlsx
+    - 💻 代码文件：.py, .js, .java, .cpp, .c, .h, .html, .css
+    - 🌐 网页文件：.html, .htm
+
+    **文件处理特性：**
+    - 智能格式识别
+    - 自动内容提取
+    - 元数据解析
+    - 编码自动检测
+    - 结构化内容处理
+
     **参数说明：**
-    - file: 上传的文件（必填）
+    - file: 上传的文件（必填，multipart/form-data）
     - knowledge_base: 目标知识库名称（可选）
-    - language: 处理语言（可选）
-    - track_id: 跟踪ID（可选）
+    - language: 处理语言（可选，影响分词和处理策略）
+    - track_id: 跟踪ID（可选，用于批量操作关联）
     - extract_metadata: 是否提取元数据（可选，默认true）
-    
-    **文件大小限制：**
+
+    **文件限制：**
     - 最大文件大小：50MB
-    
-    **返回结果：**
-    - success: 操作是否成功
-    - message: 操作结果消息
-    - data: 包含文件信息和处理结果的数据对象
-    """
+    - 支持UTF-8、GBK等常见编码
+    - 文件名支持中文
+
+    **元数据提取：**
+    - 文件基本信息（大小、创建时间等）
+    - 文档属性（作者、标题等）
+    - 内容统计（字符数、段落数等）
+
+    **处理流程：**
+    1. 文件上传验证
+    2. 格式识别和解析
+    3. 内容提取和清理
+    4. 元数据提取（可选）
+    5. 文本分块处理
+    6. 向量化存储
+    """,
+    responses={
+        200: {
+            "description": "文件上传和插入成功",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "success": {
+                            "summary": "处理成功",
+                            "value": {
+                                "success": True,
+                                "message": "文件上传并插入成功",
+                                "data": {
+                                    "track_id": "track_12345678",
+                                    "file_info": {
+                                        "filename": "document.pdf",
+                                        "size": 1024000,
+                                        "format": "pdf",
+                                        "pages": 10
+                                    },
+                                    "processing_result": {
+                                        "chunks_count": 15,
+                                        "total_tokens": 2048,
+                                        "extracted_text_length": 8192
+                                    },
+                                    "metadata": {
+                                        "title": "示例文档",
+                                        "author": "作者名称",
+                                        "creation_date": "2024-01-01"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        413: {
+            "description": "文件过大",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "文件大小超过限制（50MB）"
+                    }
+                }
+            }
+        },
+        415: {
+            "description": "不支持的文件格式",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "不支持的文件格式: .exe"
+                    }
+                }
+            }
+        },
+        422: {
+            "description": "文件处理失败",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "文件解析失败: PDF文件损坏"
+                    }
+                }
+            }
+        }
+    }
 )
 async def insert_file(
     file: UploadFile = File(...),

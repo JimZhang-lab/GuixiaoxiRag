@@ -381,6 +381,36 @@ class OptimizedQAManager:
             return {}
         return self.storage.get_category_stats()
 
+    async def delete_category(self, category: str) -> Dict[str, Any]:
+        """删除特定分类的所有问答数据"""
+        if not self.initialized:
+            return {"success": False, "error": "QA Manager not initialized"}
+
+        try:
+            result = await self.storage.delete_category(category)
+            if result.get("success"):
+                # 保存数据
+                await self.storage.index_done_callback()
+            return result
+        except Exception as e:
+            logger.error(f"Error deleting category: {e}")
+            return {"success": False, "error": str(e)}
+
+    async def delete_qa_pairs_by_ids(self, qa_ids: List[str]) -> Dict[str, Any]:
+        """根据ID列表删除问答对"""
+        if not self.initialized:
+            return {"success": False, "error": "QA Manager not initialized"}
+
+        try:
+            result = await self.storage.delete_qa_pairs_by_ids(qa_ids)
+            if result.get("success"):
+                # 保存数据
+                await self.storage.index_done_callback()
+            return result
+        except Exception as e:
+            logger.error(f"Error deleting QA pairs by IDs: {e}")
+            return {"success": False, "error": str(e)}
+
     async def import_from_json(self, json_file: str) -> bool:
         """从JSON文件导入问答对"""
         if not self.initialized:
@@ -559,6 +589,29 @@ class OptimizedQAManager:
             return False
         except Exception as e:
             logger.error(f"Error importing from Excel: {e}")
+            return False
+
+    async def save_storage(self) -> bool:
+        """保存存储数据"""
+        if not self.initialized:
+            logger.error("QA Manager not initialized")
+            return False
+
+        try:
+            if self.storage:
+                # 对于CategoryQAStorage，需要保存所有分类存储
+                if hasattr(self.storage, 'category_storages'):
+                    for storage in self.storage.category_storages.values():
+                        await storage.index_done_callback()
+                else:
+                    await self.storage.index_done_callback()
+                logger.info("QA storage saved successfully")
+                return True
+            else:
+                logger.error("No storage to save")
+                return False
+        except Exception as e:
+            logger.error(f"Error saving storage: {e}")
             return False
 
     async def cleanup(self):

@@ -24,33 +24,117 @@ system_api = SystemAPI()
     response_model=HealthResponse,
     summary="系统健康检查",
     description="""
-    检查系统的整体健康状态和各组件运行情况。
-    
-    **检查项目：**
-    - 服务运行状态
-    - 数据库连接
-    - 文件系统访问
-    - 内存使用情况
-    - 依赖服务状态
-    
-    **健康状态：**
-    - healthy: 系统运行正常
-    - degraded: 系统部分功能受影响
-    - unhealthy: 系统存在严重问题
-    - initializing: 系统正在初始化
-    - shutting_down: 系统正在关闭
-    
-    **返回信息：**
+    全面检查系统的整体健康状态和各组件运行情况。
+
+    **🔍 检查项目：**
+    - 🚀 服务运行状态和响应能力
+    - 💾 数据库连接和查询性能
+    - 📁 文件系统访问权限和空间
+    - 🧠 内存使用情况和垃圾回收
+    - 🔗 依赖服务状态和网络连通性
+    - 🤖 AI模型服务可用性
+    - 📊 向量数据库连接状态
+
+    **📈 健康状态等级：**
+    - **healthy**: 🟢 系统运行正常，所有组件正常
+    - **degraded**: 🟡 系统部分功能受影响，但核心功能可用
+    - **unhealthy**: 🔴 系统存在严重问题，影响正常使用
+    - **initializing**: 🔵 系统正在初始化，暂时不可用
+    - **shutting_down**: ⚫ 系统正在关闭，停止接受新请求
+
+    **📊 返回信息：**
     - status: 整体健康状态
-    - timestamp: 检查时间
-    - system: 系统详细状态
-    - dependencies: 依赖服务状态
-    
-    **使用场景：**
-    - 服务监控和告警
-    - 负载均衡健康检查
-    - 运维状态监控
-    """
+    - timestamp: 检查时间戳
+    - uptime: 系统运行时间
+    - version: 系统版本信息
+    - system: 系统详细状态信息
+    - dependencies: 依赖服务状态列表
+    - performance: 性能指标摘要
+    - warnings: 警告信息列表
+
+    **🎯 使用场景：**
+    - 🔔 服务监控和自动告警
+    - ⚖️ 负载均衡器健康检查
+    - 📊 运维状态监控面板
+    - 🔧 故障诊断和排查
+    - 📈 SLA监控和报告
+
+    **⚡ 性能特点：**
+    - 快速响应（通常<100ms）
+    - 轻量级检查，不影响系统性能
+    - 支持缓存，避免频繁检查
+    """,
+    responses={
+        200: {
+            "description": "健康检查完成",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "healthy": {
+                            "summary": "系统健康",
+                            "value": {
+                                "status": "healthy",
+                                "timestamp": "2024-01-01T12:00:00Z",
+                                "uptime": 86400,
+                                "version": "1.0.0",
+                                "system": {
+                                    "cpu_usage": 25.5,
+                                    "memory_usage": 45.2,
+                                    "disk_usage": 60.1,
+                                    "load_average": 1.2
+                                },
+                                "dependencies": {
+                                    "database": "healthy",
+                                    "llm_service": "healthy",
+                                    "embedding_service": "healthy",
+                                    "vector_db": "healthy"
+                                },
+                                "performance": {
+                                    "avg_response_time": 0.15,
+                                    "requests_per_second": 50.2,
+                                    "error_rate": 0.01
+                                },
+                                "warnings": []
+                            }
+                        },
+                        "degraded": {
+                            "summary": "系统降级",
+                            "value": {
+                                "status": "degraded",
+                                "timestamp": "2024-01-01T12:00:00Z",
+                                "system": {
+                                    "cpu_usage": 85.5,
+                                    "memory_usage": 90.2
+                                },
+                                "dependencies": {
+                                    "database": "healthy",
+                                    "llm_service": "degraded",
+                                    "embedding_service": "healthy"
+                                },
+                                "warnings": [
+                                    "LLM服务响应时间过长",
+                                    "内存使用率过高"
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        503: {
+            "description": "服务不可用",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "unhealthy",
+                        "timestamp": "2024-01-01T12:00:00Z",
+                        "error": "关键服务不可用",
+                        "details": "数据库连接失败"
+                    }
+                }
+            }
+        }
+    }
 )
 async def health_check():
     """系统健康检查"""
@@ -176,31 +260,148 @@ async def get_logs(lines: int = 100):
     response_model=BaseResponse,
     summary="系统重置",
     description="""
-    重置系统到初始状态，清理所有数据和缓存。
-    
-    **警告：** 此操作将清除所有数据，不可恢复！
-    
-    **重置内容：**
-    - 清空所有知识库数据
-    - 清除缓存和临时文件
-    - 重置配置到默认值（可选）
-    - 清理日志文件
-    - 重新初始化服务
-    
-    **参数说明：**
-    - confirm: 确认重置（必须为true）
-    - backup_data: 是否备份数据（默认true）
-    - reset_config: 是否重置配置（默认false）
-    
-    **使用场景：**
-    - 系统维护和清理
-    - 测试环境重置
-    - 故障恢复
-    
-    **注意事项：**
-    - 建议在操作前备份重要数据
-    - 重置后需要重新配置和导入数据
-    """
+    ⚠️ **危险操作** ⚠️ 重置系统到初始状态，清理所有数据和缓存。
+
+    **🚨 重要警告：**
+    - 此操作将永久删除所有数据
+    - 操作不可逆转，请谨慎使用
+    - 建议仅在测试环境或紧急情况下使用
+    - 生产环境使用前务必完整备份
+
+    **🗑️ 重置内容：**
+    - 📚 清空所有知识库数据和向量索引
+    - 🧠 清除AI模型缓存和会话状态
+    - 💾 删除临时文件和处理缓存
+    - 📊 重置性能统计和监控数据
+    - 📝 清理日志文件（可选）
+    - ⚙️ 重置配置到默认值（可选）
+    - 🔄 重新初始化所有服务组件
+
+    **🔧 参数说明：**
+    - confirm: 确认重置（必须为true，安全检查）
+    - backup_data: 是否在重置前备份数据（默认true，强烈推荐）
+    - reset_config: 是否重置配置到默认值（默认false）
+    - clear_logs: 是否清理日志文件（默认false）
+    - force_reset: 强制重置，跳过某些检查（默认false，谨慎使用）
+
+    **📋 重置流程：**
+    1. 验证重置权限和参数
+    2. 创建数据备份（如果启用）
+    3. 停止所有后台任务
+    4. 清理数据和缓存
+    5. 重置配置（如果启用）
+    6. 重新初始化服务
+    7. 验证重置结果
+
+    **🎯 使用场景：**
+    - 🧪 测试环境重置和清理
+    - 🔧 系统维护和故障恢复
+    - 📦 版本升级前的环境准备
+    - 🚀 新部署环境的初始化
+    - 🐛 解决严重的数据损坏问题
+
+    **💡 最佳实践：**
+    - 重置前确认所有重要数据已备份
+    - 在维护窗口期间执行重置操作
+    - 重置后验证系统功能正常
+    - 记录重置原因和时间用于审计
+    """,
+    responses={
+        200: {
+            "description": "重置成功",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "success_with_backup": {
+                            "summary": "重置成功（含备份）",
+                            "value": {
+                                "success": True,
+                                "message": "系统重置完成",
+                                "data": {
+                                    "reset_timestamp": "2024-01-01T12:00:00Z",
+                                    "backup_created": True,
+                                    "backup_path": "/backups/system_backup_20240101_120000.zip",
+                                    "backup_size": "256MB",
+                                    "reset_items": [
+                                        "knowledge_bases",
+                                        "vector_indexes",
+                                        "cache_data",
+                                        "temp_files"
+                                    ],
+                                    "services_reinitialized": [
+                                        "document_service",
+                                        "query_service",
+                                        "embedding_service"
+                                    ],
+                                    "reset_duration": 45.2
+                                }
+                            }
+                        },
+                        "success_no_backup": {
+                            "summary": "重置成功（无备份）",
+                            "value": {
+                                "success": True,
+                                "message": "系统重置完成（未创建备份）",
+                                "data": {
+                                    "reset_timestamp": "2024-01-01T12:00:00Z",
+                                    "backup_created": False,
+                                    "reset_items": ["all_data", "cache", "logs"],
+                                    "reset_duration": 30.5
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        400: {
+            "description": "重置参数错误",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "missing_confirmation": {
+                            "summary": "缺少确认",
+                            "value": {
+                                "detail": "重置操作需要明确确认（confirm=true）"
+                            }
+                        },
+                        "invalid_params": {
+                            "summary": "参数无效",
+                            "value": {
+                                "detail": "无效的重置参数组合"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        403: {
+            "description": "权限不足",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "系统重置需要管理员权限"
+                    }
+                }
+            }
+        },
+        500: {
+            "description": "重置失败",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "系统重置失败: 备份创建失败",
+                        "error_code": "RESET_BACKUP_FAILED",
+                        "recovery_suggestions": [
+                            "检查磁盘空间是否充足",
+                            "确认备份目录写入权限",
+                            "尝试手动备份后重试"
+                        ]
+                    }
+                }
+            }
+        }
+    }
 )
 async def reset_system(request: SystemResetRequest):
     """系统重置"""

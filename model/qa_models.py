@@ -3,7 +3,7 @@
 """
 
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
 import time
 
@@ -17,13 +17,15 @@ class QAPairBase(BaseModel):
     keywords: List[str] = Field(default_factory=list, description="关键词列表")
     source: str = Field(default="manual", description="来源", max_length=200)
 
-    @validator('question', 'answer')
+    @field_validator('question', 'answer')
+    @classmethod
     def validate_text_not_empty(cls, v):
         if not v.strip():
             raise ValueError('文本内容不能为空')
         return v.strip()
 
-    @validator('keywords')
+    @field_validator('keywords')
+    @classmethod
     def validate_keywords(cls, v):
         if v is None:
             return []
@@ -45,7 +47,8 @@ class QAPairUpdate(BaseModel):
     keywords: Optional[List[str]] = Field(None, description="关键词列表")
     source: Optional[str] = Field(None, description="来源", max_length=200)
 
-    @validator('question', 'answer')
+    @field_validator('question', 'answer')
+    @classmethod
     def validate_text_not_empty(cls, v):
         if v is not None and not v.strip():
             raise ValueError('文本内容不能为空')
@@ -66,7 +69,8 @@ class QAPairBatchCreate(BaseModel):
     """批量创建问答对请求模型"""
     qa_pairs: List[QAPairCreate] = Field(..., description="问答对列表", min_items=1, max_items=100)
     
-    @validator('qa_pairs')
+    @field_validator('qa_pairs')
+    @classmethod
     def validate_qa_pairs_not_empty(cls, v):
         if not v:
             raise ValueError('问答对列表不能为空')
@@ -80,7 +84,8 @@ class QAQueryRequest(BaseModel):
     min_similarity: Optional[float] = Field(None, description="最小相似度阈值", ge=0.0, le=1.0)
     category: Optional[str] = Field(None, description="分类过滤", max_length=100)
     
-    @validator('question')
+    @field_validator('question')
+    @classmethod
     def validate_question_not_empty(cls, v):
         if not v.strip():
             raise ValueError('查询问题不能为空')
@@ -193,7 +198,8 @@ class QABatchQueryRequest(BaseModel):
     parallel: bool = Field(default=True, description="是否并行处理")
     timeout: int = Field(default=300, description="超时时间(秒)", ge=10, le=600)
     
-    @validator('questions')
+    @field_validator('questions')
+    @classmethod
     def validate_questions_not_empty(cls, v):
         if not v:
             raise ValueError('问题列表不能为空')
@@ -250,3 +256,51 @@ class QARestoreResponse(BaseModel):
     total_count: int = Field(..., description="总数量")
     errors: List[str] = Field(default_factory=list, description="错误信息列表")
     message: str = Field(..., description="恢复结果消息")
+
+
+class QACategoryDeleteRequest(BaseModel):
+    """删除分类请求模型"""
+    category: str = Field(..., description="要删除的分类名称", min_length=1, max_length=100)
+
+    @field_validator('category')
+    @classmethod
+    def validate_category_not_empty(cls, v):
+        if not v.strip():
+            raise ValueError('分类名称不能为空')
+        return v.strip()
+
+
+class QACategoryDeleteResponse(BaseModel):
+    """删除分类响应模型"""
+    success: bool = Field(..., description="删除是否成功")
+    deleted_count: int = Field(..., description="删除的问答对数量")
+    category: str = Field(..., description="删除的分类名称")
+    message: str = Field(..., description="删除结果消息")
+
+
+class QAPairsDeleteRequest(BaseModel):
+    """删除问答对请求模型"""
+    qa_ids: List[str] = Field(..., description="要删除的问答对ID列表", min_items=1, max_items=100)
+
+    @field_validator('qa_ids')
+    @classmethod
+    def validate_qa_ids_not_empty(cls, v):
+        if not v:
+            raise ValueError('问答对ID列表不能为空')
+        cleaned_ids = []
+        for qa_id in v:
+            if qa_id and qa_id.strip():
+                cleaned_ids.append(qa_id.strip())
+        if not cleaned_ids:
+            raise ValueError('问答对ID列表中没有有效的ID')
+        return cleaned_ids
+
+
+class QAPairsDeleteResponse(BaseModel):
+    """删除问答对响应模型"""
+    success: bool = Field(..., description="删除是否成功")
+    deleted_count: int = Field(..., description="成功删除的问答对数量")
+    not_found_count: int = Field(..., description="未找到的问答对数量")
+    not_found_ids: List[str] = Field(default_factory=list, description="未找到的问答对ID列表")
+    requested_ids: List[str] = Field(..., description="请求删除的问答对ID列表")
+    message: str = Field(..., description="删除结果消息")
