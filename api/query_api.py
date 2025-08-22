@@ -4,8 +4,10 @@
 """
 import asyncio
 import time
-from typing import Dict, Any, Optional
+import json
+from typing import Dict, Any, Optional, AsyncIterator
 from fastapi import HTTPException
+from fastapi.responses import StreamingResponse
 
 from model import (
     BaseResponse, QueryRequest, BatchQueryRequest,
@@ -69,6 +71,62 @@ class QueryAPI:
                 **query_kwargs
             )
             elapsed = time.time() - start_time
+
+            # 如果是流式响应，返回StreamingResponse
+            if request.stream and hasattr(result, '__aiter__'):
+                async def generate_stream():
+                    """生成流式响应数据"""
+                    try:
+                        # 发送初始元数据
+                        metadata = {
+                            "type": "metadata",
+                            "data": {
+                                "mode": request.mode,
+                                "query": request.query,
+                                "knowledge_base": request.knowledge_base,
+                                "language": request.language,
+                                "stream": True
+                            }
+                        }
+                        yield f"data: {json.dumps(metadata, ensure_ascii=False)}\n\n"
+
+                        # 流式输出内容
+                        async for chunk in result:
+                            if chunk:  # 只发送非空内容
+                                chunk_data = {
+                                    "type": "content",
+                                    "data": chunk
+                                }
+                                yield f"data: {json.dumps(chunk_data, ensure_ascii=False)}\n\n"
+
+                        # 发送结束标记
+                        end_data = {
+                            "type": "done",
+                            "data": {
+                                "response_time": elapsed
+                            }
+                        }
+                        yield f"data: {json.dumps(end_data, ensure_ascii=False)}\n\n"
+
+                    except Exception as e:
+                        error_data = {
+                            "type": "error",
+                            "data": {
+                                "error": str(e)
+                            }
+                        }
+                        yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
+
+                return StreamingResponse(
+                    generate_stream(),
+                    media_type="text/event-stream",
+                    headers={
+                        "Cache-Control": "no-cache",
+                        "Connection": "keep-alive",
+                        "Access-Control-Allow-Origin": "*",
+                        "Access-Control-Allow-Headers": "*"
+                    }
+                )
 
             # 构建响应，填充响应时间（如可得）
             response_time = None

@@ -20,6 +20,50 @@ API_BASE="http://localhost:8002/api/v1"
 # 4. JavaScript fetch API
 ```
 
+```
+curl -X POST "http://localhost:8002/api/v1/query" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "如何学习机器学习？",
+    "mode": "mix",
+    "top_k": 10,
+    "stream": true,
+    "language": "中文",
+    "knowledge_base": "cs_college"
+  }'
+```
+
+**正确的流式响应格式 (Server-Sent Events):**
+```
+data: {"type": "metadata", "data": {"mode": "mix", "query": "如何学习机器学习？", "knowledge_base": "cs_college", "language": "中文", "stream": true}}
+
+data: {"type": "content", "data": "机器学习"}
+
+data: {"type": "content", "data": "是人工智能的一个重要分支"}
+
+data: {"type": "content", "data": "，它通过算法让计算机从数据中学习模式..."}
+
+data: {"type": "done", "data": {"response_time": 1.25}}
+```
+
+**错误的响应格式示例 (已修复):**
+```json
+{
+  "success": true,
+  "message": "查询成功",
+  "data": {
+    "result": "<async_generator object openai_complete_if_cache.<locals>.inner at 0x7fbdc4f72980>",
+    "mode": "mix",
+    "query": "什么是人工智能？",
+    "knowledge_base": null,
+    "language": "中文",
+    "context_sources": null,
+    "confidence": null,
+    "response_time": 0.7038366794586182
+  }
+}
+```
+
 ## 网关对接与标准请求头
 
 在通过 Java 网关转发到算法服务时，请统一携带如下头部以实现“用户优先”的限流与分层：

@@ -21,7 +21,6 @@ query_api = QueryAPI()
 
 @router.post(
     "/query",
-    response_model=BaseResponse,
     summary="智能知识查询",
     description="""
     基于知识图谱和向量检索的智能查询系统，支持多种查询模式和参数优化。
@@ -68,6 +67,12 @@ query_api = QueryAPI()
     - 需要快速响应时使用fast性能模式
     - 复杂分析查询使用quality性能模式
     - 调试时可使用only_need_context查看检索结果
+
+    **🌊 流式响应：**
+    - 设置 `stream: true` 启用流式响应
+    - 流式响应使用 Server-Sent Events (SSE) 格式
+    - 响应类型包括：metadata（元数据）、content（内容块）、done（完成）、error（错误）
+    - 适用于长文本生成和实时交互场景
     """,
     responses={
         200: {
@@ -102,6 +107,22 @@ query_api = QueryAPI()
                                     "similarity_scores": [0.95, 0.87, 0.82]
                                 }
                             }
+                        }
+                    }
+                },
+                "text/event-stream": {
+                    "examples": {
+                        "streaming_query": {
+                            "summary": "流式查询响应",
+                            "value": """data: {"type": "metadata", "data": {"mode": "mix", "query": "什么是人工智能？", "knowledge_base": "cs_college", "language": "中文", "stream": true}}
+
+data: {"type": "content", "data": "人工智能"}
+
+data: {"type": "content", "data": "（AI）是"}
+
+data: {"type": "content", "data": "计算机科学的一个分支..."}
+
+data: {"type": "done", "data": {"response_time": 1.25}}"""
                         }
                     }
                 }
