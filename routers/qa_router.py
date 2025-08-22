@@ -939,19 +939,21 @@ async def clear_qa_data():
 @router.delete(
     "/categories/{category}",
     response_model=BaseResponse,
-    summary="删除特定分类的问答数据",
+    summary="删除特定分类的问答数据和文件夹",
     description="""
-    删除指定分类下的所有问答对和相关数据。
+    删除指定分类下的所有问答对、相关数据和对应的文件夹。
 
     **删除范围：**
     - 指定分类的所有问答对
-    - 对应的向量索引
+    - 对应的向量索引文件
     - 分类统计信息
+    - 分类存储文件夹（完整删除）
 
     **操作特点：**
     - 仅影响指定分类
     - 其他分类数据保持不变
     - 操作不可逆转
+    - 彻底清理文件系统
 
     **参数说明：**
     - category: 分类名称（路径参数，必填）
@@ -959,12 +961,14 @@ async def clear_qa_data():
     **返回信息：**
     - deleted_count: 删除的问答对数量
     - category: 删除的分类名称
+    - folder_deleted: 分类文件夹是否成功删除
     - message: 操作结果描述
 
     **使用场景：**
     - 分类数据清理
     - 过时内容移除
     - 分类重构
+    - 存储空间释放
 
     **注意事项：**
     - 分类名称区分大小写

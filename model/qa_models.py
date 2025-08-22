@@ -276,6 +276,7 @@ class QACategoryDeleteResponse(BaseModel):
     deleted_count: int = Field(..., description="删除的问答对数量")
     category: str = Field(..., description="删除的分类名称")
     message: str = Field(..., description="删除结果消息")
+    folder_deleted: bool = Field(default=False, description="分类文件夹是否已删除")
 
 
 class QAPairsDeleteRequest(BaseModel):

@@ -807,6 +807,162 @@ class SyncTestRunner:
                 "error": str(e)
             }
     
+    def test_delete_category(self) -> Dict[str, Any]:
+        """测试删除分类功能（包括文件夹删除）"""
+        test_name = "Delete Category"
+        self.logger.test_start(test_name)
+        self.logger.debug(f"开始执行 {test_name}")
+
+        try:
+            # 首先创建一个测试分类的问答对
+            create_url = self.get_url(API_ENDPOINTS["qa"]["pairs"])
+            test_category = f"test_delete_{int(time.time())}"
+
+            qa_data = self.utils.create_sample_qa_pair()
+            qa_data["category"] = test_category
+
+            self.logger.debug(f"创建测试分类问答对: {test_category}")
+            self.logger.debug(f"问答对数据: {qa_data}")
+
+            # 创建问答对
+            headers = {"Content-Type": "application/json"}
+            create_response = requests.post(create_url, json=qa_data, headers=headers, timeout=self.timeout)
+
+            if create_response.status_code != 200:
+                self.logger.debug(f"创建问答对失败: {create_response.text}")
+                return {
+                    "success": False,
+                    "error": f"创建测试问答对失败: {create_response.status_code}",
+                    "skipped": True,
+                    "reason": "无法创建测试数据"
+                }
+
+            create_result = create_response.json()
+            if not create_result.get("success"):
+                self.logger.debug(f"创建问答对失败: {create_result}")
+                return {
+                    "success": False,
+                    "error": f"创建测试问答对失败: {create_result.get('message')}",
+                    "skipped": True,
+                    "reason": "无法创建测试数据"
+                }
+
+            qa_id = create_result["data"]["qa_id"]
+            self.logger.debug(f"成功创建测试问答对: {qa_id}")
+
+            # 等待一下确保数据已保存
+            time.sleep(1)
+
+            # 现在删除分类
+            delete_url = self.get_url(API_ENDPOINTS["qa"]["delete_category"].format(category=test_category))
+            self.logger.debug(f"删除分类URL: {delete_url}")
+
+            start_time = time.time()
+            self.logger.debug(f"发送DELETE请求删除分类: {test_category}")
+            response = requests.delete(delete_url, timeout=self.timeout)
+            duration = time.time() - start_time
+
+            # 记录响应信息
+            self.logger.debug(f"响应状态码: {response.status_code}")
+            self.logger.debug(f"响应头: {dict(response.headers)}")
+            self.logger.debug(f"响应时间: {duration:.3f}秒")
+            self.logger.debug(f"响应大小: {len(response.content)}字节")
+
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                    self.logger.debug(f"删除分类响应: {data}")
+
+                    # 验证删除结果
+                    if "success" in data:
+                        self.logger.debug(f"删除成功状态: {data['success']}")
+                    if "message" in data:
+                        self.logger.debug(f"删除消息: {data['message']}")
+                    if "data" in data:
+                        delete_data = data["data"]
+                        if "deleted_count" in delete_data:
+                            self.logger.debug(f"删除的问答对数量: {delete_data['deleted_count']}")
+                        if "category" in delete_data:
+                            self.logger.debug(f"删除的分类: {delete_data['category']}")
+                        if "folder_deleted" in delete_data:
+                            folder_deleted = delete_data["folder_deleted"]
+                            self.logger.debug(f"文件夹是否删除: {folder_deleted}")
+                            if folder_deleted:
+                                self.logger.debug("✅ 分类文件夹已成功删除")
+                            else:
+                                self.logger.debug("⚠️ 分类文件夹删除失败或不存在")
+
+                    if data.get("success"):
+                        self.logger.test_pass(test_name, duration)
+                        return {
+                            "success": True,
+                            "duration": duration,
+                            "status_code": response.status_code,
+                            "data": data,
+                            "test_category": test_category,
+                            "created_qa_id": qa_id
+                        }
+                    else:
+                        error_msg = data.get("message", "删除分类失败")
+                        self.logger.debug(f"删除分类失败: {error_msg}")
+                        self.logger.test_fail(test_name, error_msg, duration)
+                        return {
+                            "success": False,
+                            "duration": duration,
+                            "status_code": response.status_code,
+                            "error": error_msg,
+                            "test_category": test_category
+                        }
+
+                except json.JSONDecodeError as e:
+                    self.logger.debug(f"JSON解析失败: {e}")
+                    self.logger.debug(f"原始响应: {response.text[:500]}")
+                    error_msg = f"JSON解析失败: {e}"
+                    self.logger.test_fail(test_name, error_msg, duration)
+                    return {
+                        "success": False,
+                        "duration": duration,
+                        "status_code": response.status_code,
+                        "error": error_msg
+                    }
+            else:
+                error_msg = self.utils.extract_error_message(response)
+                self.logger.debug(f"删除分类失败: {error_msg}")
+                self.logger.debug(f"错误响应: {response.text[:500]}")
+                self.logger.test_fail(test_name, error_msg, duration)
+                return {
+                    "success": False,
+                    "duration": duration,
+                    "status_code": response.status_code,
+                    "error": error_msg,
+                    "test_category": test_category
+                }
+
+        except requests.exceptions.Timeout as e:
+            self.logger.debug(f"删除分类请求超时: {e}")
+            self.logger.test_fail(test_name, f"请求超时: {e}")
+            return {
+                "success": False,
+                "error": f"请求超时: {e}"
+            }
+        except requests.exceptions.ConnectionError as e:
+            self.logger.debug(f"删除分类连接错误: {e}")
+            self.logger.test_fail(test_name, f"连接错误: {e}")
+            return {
+                "success": False,
+                "error": f"连接错误: {e}"
+            }
+        except Exception as e:
+            self.logger.debug(f"删除分类未知异常: {e}")
+            self.logger.debug(f"异常类型: {type(e).__name__}")
+            import traceback
+            self.logger.debug(f"异常堆栈: {traceback.format_exc()}")
+            self.logger.test_fail(test_name, str(e))
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
     def test_qa_statistics(self) -> Dict[str, Any]:
         """测试QA统计"""
         test_name = "QA Statistics"
@@ -947,6 +1103,7 @@ class SyncTestRunner:
             ("qa_health", self.test_qa_health_check, "QA系统健康检查"),
             ("create_qa_pair", self.test_create_qa_pair, "创建问答对"),
             ("qa_query", self.test_qa_query, "QA查询"),
+            ("delete_category", self.test_delete_category, "删除分类"),
             ("insert_text", self.test_insert_text, "文本插入"),
             ("basic_query", self.test_basic_query, "基本查询"),
             ("query_modes", self.test_get_query_modes, "获取查询模式"),

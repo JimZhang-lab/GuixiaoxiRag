@@ -500,7 +500,7 @@ class QAAPIHandler:
             )
     
     async def delete_category(self, category: str) -> BaseResponse:
-        """删除特定分类的所有问答数据"""
+        """删除特定分类的所有问答数据和对应文件夹"""
         start_time = time.time()
 
         if not self.initialized:
@@ -521,7 +521,8 @@ class QAAPIHandler:
                     message=result.get("message", f"分类 '{category}' 删除成功"),
                     data={
                         "deleted_count": result.get("deleted_count", 0),
-                        "category": category
+                        "category": category,
+                        "folder_deleted": result.get("folder_deleted", False)
                     }
                 )
             else:
@@ -529,7 +530,12 @@ class QAAPIHandler:
                 return BaseResponse(
                     success=False,
                     message=result.get("message", f"删除分类 '{category}' 失败"),
-                    error_code="QA_DELETE_CATEGORY_FAILED"
+                    error_code="QA_DELETE_CATEGORY_FAILED",
+                    data={
+                        "deleted_count": result.get("deleted_count", 0),
+                        "category": category,
+                        "folder_deleted": result.get("folder_deleted", False)
+                    }
                 )
 
         except Exception as e:

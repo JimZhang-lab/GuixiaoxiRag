@@ -27,6 +27,7 @@ API_ENDPOINTS = {
         "query_batch": "/qa/query/batch",
         "clear": "/qa/clear",
         "categories": "/qa/categories",
+        "delete_category": "/qa/categories/{category}",
         "statistics": "/qa/statistics",
         "export": "/qa/export",
         "import": "/qa/import"

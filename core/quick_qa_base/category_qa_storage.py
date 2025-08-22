@@ -336,17 +336,33 @@ class CategoryQAStorage:
         return stats
 
     async def delete_category(self, category: str) -> Dict[str, Any]:
-        """删除特定分类的所有问答数据"""
+        """删除特定分类的所有问答数据和对应文件夹"""
         try:
             if category not in self.category_storages:
-                return {
-                    "success": False,
-                    "message": f"分类 '{category}' 不存在",
-                    "deleted_count": 0
-                }
+                # 检查是否存在分类文件夹但未加载
+                category_path = os.path.join(self.base_storage_path, category)
+                if os.path.exists(category_path) and os.path.isdir(category_path):
+                    # 直接删除文件夹
+                    import shutil
+                    shutil.rmtree(category_path)
+                    logger.info(f"Deleted unloaded category folder '{category}'")
+                    return {
+                        "success": True,
+                        "message": f"成功删除分类 '{category}' 文件夹",
+                        "deleted_count": 0,
+                        "folder_deleted": True
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "message": f"分类 '{category}' 不存在",
+                        "deleted_count": 0,
+                        "folder_deleted": False
+                    }
 
             storage = self.category_storages[category]
             deleted_count = len(storage.qa_pairs)
+            category_path = os.path.join(self.base_storage_path, category)
 
             # 从全局索引中删除该分类的所有问答对
             qa_ids_to_remove = list(storage.qa_pairs.keys())
@@ -354,18 +370,31 @@ class CategoryQAStorage:
                 if qa_id in self.qa_pairs:
                     del self.qa_pairs[qa_id]
 
-            # 清空该分类的存储
+            # 清空该分类的存储（删除文件）
             await storage.drop()
 
             # 从分类存储中移除
             del self.category_storages[category]
 
-            logger.info(f"Deleted category '{category}' with {deleted_count} QA pairs")
+            # 删除整个分类文件夹
+            folder_deleted = False
+            if os.path.exists(category_path) and os.path.isdir(category_path):
+                try:
+                    import shutil
+                    shutil.rmtree(category_path)
+                    folder_deleted = True
+                    logger.info(f"Deleted category folder: {category_path}")
+                except Exception as folder_error:
+                    logger.warning(f"Failed to delete category folder {category_path}: {folder_error}")
+
+            logger.info(f"Deleted category '{category}' with {deleted_count} QA pairs, folder deleted: {folder_deleted}")
 
             return {
                 "success": True,
-                "message": f"成功删除分类 '{category}' 及其 {deleted_count} 个问答对",
-                "deleted_count": deleted_count
+                "message": f"成功删除分类 '{category}' 及其 {deleted_count} 个问答对" +
+                          (f"，文件夹已删除" if folder_deleted else f"，文件夹删除失败"),
+                "deleted_count": deleted_count,
+                "folder_deleted": folder_deleted
             }
 
         except Exception as e:
@@ -373,7 +402,8 @@ class CategoryQAStorage:
             return {
                 "success": False,
                 "message": f"删除分类失败: {str(e)}",
-                "deleted_count": 0
+                "deleted_count": 0,
+                "folder_deleted": False
             }
 
     async def delete_qa_pairs_by_ids(self, qa_ids: List[str]) -> Dict[str, Any]:
