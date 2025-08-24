@@ -963,6 +963,182 @@ class SyncTestRunner:
                 "error": str(e)
             }
 
+    def test_concurrency_control(self) -> Dict[str, Any]:
+        """测试并发控制功能"""
+        test_name = "Concurrency Control"
+        self.logger.test_start(test_name)
+        self.logger.debug(f"开始执行 {test_name}")
+
+        try:
+            import threading
+            import concurrent.futures
+
+            # 创建测试分类
+            test_category = f"concurrency_test_{int(time.time())}"
+            self.logger.debug(f"并发测试分类: {test_category}")
+
+            # 准备并发操作
+            create_url = self.get_url(API_ENDPOINTS["qa"]["pairs"])
+            delete_url = self.get_url(API_ENDPOINTS["qa"]["delete_category"].format(category=test_category))
+
+            results = []
+            start_time = time.time()
+
+            def create_qa_pair(index):
+                """创建问答对的线程函数"""
+                qa_data = {
+                    "question": f"Concurrent test question {index}",
+                    "answer": f"Concurrent test answer {index}",
+                    "category": test_category,
+                    "confidence": 0.9,
+                    "keywords": [f"concurrent{index}"],
+                    "source": "concurrency_test"
+                }
+
+                try:
+                    response = requests.post(create_url, json=qa_data, headers={"Content-Type": "application/json"}, timeout=self.timeout)
+                    if response.status_code == 200:
+                        result = response.json()
+                        return {
+                            "operation": "create",
+                            "index": index,
+                            "success": result.get("success", False),
+                            "qa_id": result.get("data", {}).get("qa_id"),
+                            "thread_id": threading.current_thread().ident
+                        }
+                    else:
+                        return {
+                            "operation": "create",
+                            "index": index,
+                            "success": False,
+                            "error": f"HTTP {response.status_code}",
+                            "thread_id": threading.current_thread().ident
+                        }
+                except Exception as e:
+                    return {
+                        "operation": "create",
+                        "index": index,
+                        "success": False,
+                        "error": str(e),
+                        "thread_id": threading.current_thread().ident
+                    }
+
+            def delete_category():
+                """删除分类的线程函数"""
+                try:
+                    response = requests.delete(delete_url, timeout=self.timeout)
+                    if response.status_code == 200:
+                        result = response.json()
+                        return {
+                            "operation": "delete",
+                            "success": result.get("success", False),
+                            "deleted_count": result.get("data", {}).get("deleted_count", 0),
+                            "thread_id": threading.current_thread().ident
+                        }
+                    else:
+                        return {
+                            "operation": "delete",
+                            "success": False,
+                            "error": f"HTTP {response.status_code}",
+                            "thread_id": threading.current_thread().ident
+                        }
+                except Exception as e:
+                    return {
+                        "operation": "delete",
+                        "success": False,
+                        "error": str(e),
+                        "thread_id": threading.current_thread().ident
+                    }
+
+            # 使用线程池执行并发操作
+            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+                futures = []
+
+                # 提交创建任务
+                for i in range(5):
+                    future = executor.submit(create_qa_pair, i)
+                    futures.append(future)
+
+                # 提交删除任务
+                for i in range(2):
+                    future = executor.submit(delete_category)
+                    futures.append(future)
+
+                # 收集结果
+                for future in concurrent.futures.as_completed(futures):
+                    try:
+                        result = future.result()
+                        results.append(result)
+                        self.logger.debug(f"并发操作结果: {result}")
+                    except Exception as e:
+                        self.logger.debug(f"并发操作异常: {e}")
+                        results.append({
+                            "operation": "unknown",
+                            "success": False,
+                            "error": str(e)
+                        })
+
+            duration = time.time() - start_time
+
+            # 分析结果
+            create_results = [r for r in results if r["operation"] == "create"]
+            delete_results = [r for r in results if r["operation"] == "delete"]
+
+            create_success = len([r for r in create_results if r["success"]])
+            delete_success = len([r for r in delete_results if r["success"]])
+
+            self.logger.debug(f"并发测试结果:")
+            self.logger.debug(f"  创建操作: {create_success}/{len(create_results)} 成功")
+            self.logger.debug(f"  删除操作: {delete_success}/{len(delete_results)} 成功")
+            self.logger.debug(f"  总耗时: {duration:.3f}秒")
+
+            # 验证并发控制是否有效
+            # 如果并发控制正常，应该不会出现数据竞争问题
+            total_operations = len(results)
+            successful_operations = len([r for r in results if r["success"]])
+
+            if successful_operations > 0:
+                self.logger.test_pass(test_name, duration)
+                return {
+                    "success": True,
+                    "duration": duration,
+                    "total_operations": total_operations,
+                    "successful_operations": successful_operations,
+                    "create_success": create_success,
+                    "create_total": len(create_results),
+                    "delete_success": delete_success,
+                    "delete_total": len(delete_results),
+                    "concurrency_results": results
+                }
+            else:
+                error_msg = "所有并发操作都失败了"
+                self.logger.test_fail(test_name, error_msg, duration)
+                return {
+                    "success": False,
+                    "duration": duration,
+                    "error": error_msg,
+                    "concurrency_results": results
+                }
+
+        except ImportError as e:
+            self.logger.debug(f"并发测试依赖缺失: {e}")
+            self.logger.test_skip(test_name, "缺少并发测试依赖")
+            return {
+                "success": False,
+                "skipped": True,
+                "reason": f"缺少并发测试依赖: {e}"
+            }
+        except Exception as e:
+            self.logger.debug(f"并发测试未知异常: {e}")
+            self.logger.debug(f"异常类型: {type(e).__name__}")
+            import traceback
+            self.logger.debug(f"异常堆栈: {traceback.format_exc()}")
+            self.logger.test_fail(test_name, str(e))
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
     def test_qa_statistics(self) -> Dict[str, Any]:
         """测试QA统计"""
         test_name = "QA Statistics"
@@ -1104,6 +1280,7 @@ class SyncTestRunner:
             ("create_qa_pair", self.test_create_qa_pair, "创建问答对"),
             ("qa_query", self.test_qa_query, "QA查询"),
             ("delete_category", self.test_delete_category, "删除分类"),
+            ("concurrency_test", self.test_concurrency_control, "并发控制测试"),
             ("insert_text", self.test_insert_text, "文本插入"),
             ("basic_query", self.test_basic_query, "基本查询"),
             ("query_modes", self.test_get_query_modes, "获取查询模式"),

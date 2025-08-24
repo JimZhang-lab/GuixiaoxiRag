@@ -16,6 +16,7 @@ import logging
 from core.rag.base import BaseVectorStorage
 from nano_vectordb import NanoVectorDB
 from .qa_vector_storage import QAPair
+from .qa_concurrency_manager import QAConcurrencyManager
 
 logger = logging.getLogger(__name__)
 
@@ -107,39 +108,94 @@ class CategoryQAStorage:
             logger.error(f"Error loading category storage '{category}': {e}")
     
     async def _get_or_create_category_storage(self, category: str):
-        """获取或创建分类存储"""
-        if category not in self.category_storages:
-            await self._load_category_storage(category)
-        return self.category_storages.get(category)
+        """获取或创建分类存储（支持并发安全）"""
+        # 双重检查锁定模式：先检查是否已存在
+        if category in self.category_storages:
+            storage = self.category_storages[category]
+            # 验证存储的有效性
+            if hasattr(storage, 'qa_pairs') and hasattr(storage, 'initialized'):
+                return storage
+            else:
+                logger.warning(f"Category '{category}' storage is corrupted, will recreate")
+                # 移除无效的存储
+                del self.category_storages[category]
+
+        # 使用全局锁确保分类存储的创建是原子的
+        # 这防止多个并发请求同时创建同一个分类的存储
+        async with QAConcurrencyManager.get_global_qa_lock("create_category", enable_logging=True):
+            # 再次检查（双重检查锁定模式）
+            if category in self.category_storages:
+                storage = self.category_storages[category]
+                if hasattr(storage, 'qa_pairs') and hasattr(storage, 'initialized'):
+                    logger.debug(f"Category '{category}' storage created by another thread")
+                    return storage
+                else:
+                    # 清理无效存储
+                    del self.category_storages[category]
+
+            # 创建新的分类存储
+            try:
+                await self._load_category_storage(category)
+                storage = self.category_storages.get(category)
+                if storage:
+                    logger.info(f"Successfully created new storage for category '{category}'")
+                else:
+                    logger.error(f"Failed to load storage for category '{category}'")
+
+                return storage
+            except Exception as e:
+                logger.error(f"Error creating storage for category '{category}': {e}")
+                import traceback
+                logger.debug(f"Create category storage error traceback: {traceback.format_exc()}")
+                return None
     
     async def add_qa_pair(self, question: str, answer: str, **kwargs) -> Optional[str]:
-        """添加问答对到指定分类"""
+        """添加问答对到指定分类（支持并发安全）"""
         category = kwargs.get('category', 'general')
-        
-        try:
-            # 获取或创建分类存储
-            storage = await self._get_or_create_category_storage(category)
-            if not storage:
-                logger.error(f"Failed to get storage for category '{category}'")
+
+        # 使用分类级创建锁，确保同一分类的创建操作和删除操作互斥
+        async with QAConcurrencyManager.get_category_lock(category, "create", enable_logging=True):
+            try:
+                # 在锁内检查分类是否仍然存在（防止在等待锁期间被删除）
+                if category in self.category_storages:
+                    # 检查存储是否仍然有效
+                    storage = self.category_storages[category]
+                    if not hasattr(storage, 'qa_pairs'):
+                        logger.warning(f"Category '{category}' storage is invalid, recreating...")
+                        storage = None
+                    else:
+                        logger.debug(f"Using existing storage for category '{category}'")
+                else:
+                    storage = None
+
+                # 获取或创建分类存储
+                if not storage:
+                    storage = await self._get_or_create_category_storage(category)
+                    if not storage:
+                        logger.error(f"Failed to get storage for category '{category}'")
+                        return None
+
+                # 添加问答对
+                qa_id = await storage.add_qa_pair(question, answer, **kwargs)
+                if qa_id:
+                    # 添加到全局索引
+                    qa_pair = storage.qa_pairs.get(qa_id)
+                    if qa_pair:
+                        self.qa_pairs[qa_id] = qa_pair
+
+                    # 保存数据
+                    await storage.index_done_callback()
+                    logger.info(f"Successfully added QA pair {qa_id} to category '{category}'")
+                else:
+                    logger.warning(f"Failed to add QA pair to category '{category}': storage returned None")
+
+                return qa_id
+
+            except Exception as e:
+                logger.error(f"Error adding QA pair to category '{category}': {e}")
+                import traceback
+                logger.debug(f"Add QA pair error traceback: {traceback.format_exc()}")
                 return None
-            
-            # 添加问答对
-            qa_id = await storage.add_qa_pair(question, answer, **kwargs)
-            if qa_id:
-                # 添加到全局索引
-                qa_pair = storage.qa_pairs.get(qa_id)
-                if qa_pair:
-                    self.qa_pairs[qa_id] = qa_pair
-                
-                # 保存数据
-                await storage.index_done_callback()
-                logger.info(f"Added QA pair {qa_id} to category '{category}'")
-            
-            return qa_id
-            
-        except Exception as e:
-            logger.error(f"Error adding QA pair to category '{category}': {e}")
-            return None
     
     async def add_qa_pairs_batch(self, qa_data: List[Dict[str, Any]]) -> Dict[str, Any]:
         """批量添加问答对"""
@@ -155,42 +211,61 @@ class CategoryQAStorage:
                 category_groups[category] = []
             category_groups[category].append(qa_item)
 
-        # 为每个分类批量添加
-        for category, items in category_groups.items():
-            try:
-                storage = await self._get_or_create_category_storage(category)
-                if storage:
-                    # 调用存储的批量添加方法（现在返回字典）
-                    result = await storage.add_qa_pairs_batch(items)
+        # 获取所有涉及的分类，并按字母顺序排序以避免死锁
+        categories = sorted(category_groups.keys())
 
-                    # 处理结果
-                    if isinstance(result, dict):
-                        # 新的返回格式
-                        batch_ids = result.get("added_ids", [])
-                        added_ids.extend(batch_ids)
-                        skipped_duplicates.extend(result.get("skipped_duplicates", []))
-                        failed_items.extend(result.get("failed_items", []))
+        # 使用多分类锁确保批量操作的原子性
+        async with QAConcurrencyManager.get_multiple_category_locks(categories, "create", enable_logging=True):
+            # 为每个分类批量添加
+            for category in categories:
+                items = category_groups[category]
+                try:
+                    storage = await self._get_or_create_category_storage(category)
+                    if storage:
+                        # 调用存储的批量添加方法（现在返回字典）
+                        result = await storage.add_qa_pairs_batch(items)
+
+                        # 处理结果
+                        if isinstance(result, dict):
+                            # 新的返回格式
+                            batch_ids = result.get("added_ids", [])
+                            added_ids.extend(batch_ids)
+                            skipped_duplicates.extend(result.get("skipped_duplicates", []))
+                            failed_items.extend(result.get("failed_items", []))
+                        else:
+                            # 旧的返回格式（向后兼容）
+                            batch_ids = result if isinstance(result, list) else []
+                            added_ids.extend(batch_ids)
+
+                        # 更新全局索引
+                        for qa_id in batch_ids:
+                            qa_pair = storage.qa_pairs.get(qa_id)
+                            if qa_pair:
+                                self.qa_pairs[qa_id] = qa_pair
+
+                        # 保存数据
+                        await storage.index_done_callback()
+                        logger.info(f"Successfully batch added {len(batch_ids)} QA pairs to category '{category}'")
                     else:
-                        # 旧的返回格式（向后兼容）
-                        batch_ids = result if isinstance(result, list) else []
-                        added_ids.extend(batch_ids)
+                        # 如果无法获取存储，将所有项目标记为失败
+                        for item in items:
+                            failed_items.append({
+                                **item,
+                                "error": f"Failed to get storage for category '{category}'"
+                            })
+                        logger.error(f"Failed to get storage for category '{category}'")
 
-                    # 更新全局索引
-                    for qa_id in batch_ids:
-                        qa_pair = storage.qa_pairs.get(qa_id)
-                        if qa_pair:
-                            self.qa_pairs[qa_id] = qa_pair
+                except Exception as e:
+                    logger.error(f"Error batch adding QA pairs to category '{category}': {e}")
+                    import traceback
+                    logger.debug(f"Batch add error traceback: {traceback.format_exc()}")
 
-                    # 保存数据
-                    await storage.index_done_callback()
-                    logger.info(f"Added {len(batch_ids)} QA pairs to category '{category}'")
-
-            except Exception as e:
-                logger.error(f"Error batch adding QA pairs to category '{category}': {e}")
-                failed_items.append({
-                    "category": category,
-                    "error": str(e)
-                })
+                    # 将该分类的所有项目标记为失败
+                    for item in items:
+                        failed_items.append({
+                            **item,
+                            "error": str(e)
+                        })
 
         return {
             "added_ids": added_ids,
@@ -202,25 +277,26 @@ class CategoryQAStorage:
         }
     
     async def query_qa(self, question: str, top_k: int = 1, min_similarity: Optional[float] = None, category: Optional[str] = None, better_than_threshold: Optional[float] = None) -> Dict[str, Any]:
-        """查询问答"""
+        """查询问答（支持并发安全）"""
         if not self.qa_pairs:
             return {
                 "success": True,
                 "found": False,
                 "message": "No QA pairs available"
             }
-        
+
         try:
             if category:
-                # 在指定分类中查询
-                storage = self.category_storages.get(category)
-                if not storage:
-                    return {
-                        "success": True,
-                        "found": False,
-                        "message": f"Category '{category}' not found"
-                    }
-                return await storage.query_qa(question, top_k, min_similarity, None, better_than_threshold)
+                # 在指定分类中查询，使用读锁
+                async with QAConcurrencyManager.get_category_lock(category, "query", enable_logging=False):
+                    storage = self.category_storages.get(category)
+                    if not storage:
+                        return {
+                            "success": True,
+                            "found": False,
+                            "message": f"Category '{category}' not found"
+                        }
+                    return await storage.query_qa(question, top_k, min_similarity, None, better_than_threshold)
             else:
                 # 全局查询：在所有分类中查询并合并结果
                 all_results = []
@@ -336,75 +412,93 @@ class CategoryQAStorage:
         return stats
 
     async def delete_category(self, category: str) -> Dict[str, Any]:
-        """删除特定分类的所有问答数据和对应文件夹"""
-        try:
-            if category not in self.category_storages:
-                # 检查是否存在分类文件夹但未加载
+        """删除特定分类的所有问答数据和对应文件夹（支持并发安全）"""
+        # 使用分类级删除锁，确保同一分类的删除操作串行执行
+        async with QAConcurrencyManager.get_category_lock(category, "delete", enable_logging=True):
+            try:
+                # 双重检查：在获得锁后再次检查分类是否存在
+                # 防止多个并发删除请求同时进入
+                if category not in self.category_storages:
+                    # 检查是否存在分类文件夹但未加载
+                    category_path = os.path.join(self.base_storage_path, category)
+                    if os.path.exists(category_path) and os.path.isdir(category_path):
+                        # 直接删除文件夹
+                        import shutil
+                        try:
+                            shutil.rmtree(category_path)
+                            logger.info(f"Deleted unloaded category folder '{category}'")
+                            return {
+                                "success": True,
+                                "message": f"成功删除分类 '{category}' 文件夹",
+                                "deleted_count": 0,
+                                "folder_deleted": True
+                            }
+                        except Exception as folder_error:
+                            logger.error(f"Failed to delete unloaded category folder {category_path}: {folder_error}")
+                            return {
+                                "success": False,
+                                "message": f"删除分类文件夹失败: {str(folder_error)}",
+                                "deleted_count": 0,
+                                "folder_deleted": False
+                            }
+                    else:
+                        return {
+                            "success": False,
+                            "message": f"分类 '{category}' 不存在",
+                            "deleted_count": 0,
+                            "folder_deleted": False
+                        }
+
+                storage = self.category_storages[category]
+                deleted_count = len(storage.qa_pairs)
                 category_path = os.path.join(self.base_storage_path, category)
+
+                # 记录开始删除
+                logger.info(f"Starting deletion of category '{category}' with {deleted_count} QA pairs")
+
+                # 从全局索引中删除该分类的所有问答对
+                qa_ids_to_remove = list(storage.qa_pairs.keys())
+                for qa_id in qa_ids_to_remove:
+                    if qa_id in self.qa_pairs:
+                        del self.qa_pairs[qa_id]
+
+                # 清空该分类的存储（删除文件）
+                await storage.drop()
+
+                # 从分类存储中移除
+                del self.category_storages[category]
+
+                # 删除整个分类文件夹
+                folder_deleted = False
                 if os.path.exists(category_path) and os.path.isdir(category_path):
-                    # 直接删除文件夹
-                    import shutil
-                    shutil.rmtree(category_path)
-                    logger.info(f"Deleted unloaded category folder '{category}'")
-                    return {
-                        "success": True,
-                        "message": f"成功删除分类 '{category}' 文件夹",
-                        "deleted_count": 0,
-                        "folder_deleted": True
-                    }
-                else:
-                    return {
-                        "success": False,
-                        "message": f"分类 '{category}' 不存在",
-                        "deleted_count": 0,
-                        "folder_deleted": False
-                    }
+                    try:
+                        import shutil
+                        shutil.rmtree(category_path)
+                        folder_deleted = True
+                        logger.info(f"Successfully deleted category folder: {category_path}")
+                    except Exception as folder_error:
+                        logger.warning(f"Failed to delete category folder {category_path}: {folder_error}")
 
-            storage = self.category_storages[category]
-            deleted_count = len(storage.qa_pairs)
-            category_path = os.path.join(self.base_storage_path, category)
+                logger.info(f"Successfully deleted category '{category}' with {deleted_count} QA pairs, folder deleted: {folder_deleted}")
 
-            # 从全局索引中删除该分类的所有问答对
-            qa_ids_to_remove = list(storage.qa_pairs.keys())
-            for qa_id in qa_ids_to_remove:
-                if qa_id in self.qa_pairs:
-                    del self.qa_pairs[qa_id]
+                return {
+                    "success": True,
+                    "message": f"成功删除分类 '{category}' 及其 {deleted_count} 个问答对" +
+                              (f"，文件夹已删除" if folder_deleted else f"，文件夹删除失败"),
+                    "deleted_count": deleted_count,
+                    "folder_deleted": folder_deleted
+                }
 
-            # 清空该分类的存储（删除文件）
-            await storage.drop()
-
-            # 从分类存储中移除
-            del self.category_storages[category]
-
-            # 删除整个分类文件夹
-            folder_deleted = False
-            if os.path.exists(category_path) and os.path.isdir(category_path):
-                try:
-                    import shutil
-                    shutil.rmtree(category_path)
-                    folder_deleted = True
-                    logger.info(f"Deleted category folder: {category_path}")
-                except Exception as folder_error:
-                    logger.warning(f"Failed to delete category folder {category_path}: {folder_error}")
-
-            logger.info(f"Deleted category '{category}' with {deleted_count} QA pairs, folder deleted: {folder_deleted}")
-
-            return {
-                "success": True,
-                "message": f"成功删除分类 '{category}' 及其 {deleted_count} 个问答对" +
-                          (f"，文件夹已删除" if folder_deleted else f"，文件夹删除失败"),
-                "deleted_count": deleted_count,
-                "folder_deleted": folder_deleted
-            }
-
-        except Exception as e:
-            logger.error(f"Error deleting category '{category}': {e}")
-            return {
-                "success": False,
-                "message": f"删除分类失败: {str(e)}",
-                "deleted_count": 0,
-                "folder_deleted": False
-            }
+            except Exception as e:
+                logger.error(f"Error deleting category '{category}': {e}")
+                import traceback
+                logger.debug(f"Delete category error traceback: {traceback.format_exc()}")
+                return {
+                    "success": False,
+                    "message": f"删除分类失败: {str(e)}",
+                    "deleted_count": 0,
+                    "folder_deleted": False
+                }
 
     async def delete_qa_pairs_by_ids(self, qa_ids: List[str]) -> Dict[str, Any]:
         """根据ID列表删除问答对"""
